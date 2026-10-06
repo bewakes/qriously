@@ -67,9 +67,13 @@ view). Visual direction is a new reading-first theme, working name **Lumen**.
 animation and echoes the query — no search, no backend, no accounts. This is
 deliberate: nail the feel of the first interaction before wiring anything up.
 
-**Immersive app (`app/`):** spec only (`INTERACTION-SPEC.md`). No code yet.
-Decisions locked: margin-rail branching, mock content graph for the prototype,
-and a new reading-first theme ("Lumen").
+**Immersive app (`app/`):** MVP prototype built — Lumen reading-first theme,
+calibration lens, a **branch list (master)** plus a **single floating branch
+window (detail)** with jump-back and breadcrumb (recursion linearized), actioned
+words marked with an underline + kind icon (no pre-highlighting), trail
+breadcrumb, and notebook. Content is a mock node graph for "Why is the sky
+blue?" (`?demo=1` pre-seeds a session). Spec: `app/INTERACTION-SPEC.md`
+(see its Decision log for the rail → list+window change).
 
 ## Constraints
 

@@ -28,13 +28,18 @@ qriously/
 ├── liquidglass/        # premium glassmorphism
 ├── questlog/           # RPG HUD with XP
 ├── clay/               # claymorphism
-└── app/                # immersive learning app (spec-first)
-    └── INTERACTION-SPEC.md
+└── app/                # immersive learning app (prototype)
+    ├── INTERACTION-SPEC.md  # the interaction spec (read first)
+    ├── index.html
+    ├── styles.css           # Lumen reading-first theme
+    ├── content.js           # mock node graph + generator
+    └── script.js            # branching engine
 ```
 
 The landing folders are independent, self-contained pages. The `app/` folder is
-the actual product surface and is currently **spec-only** — read
-`app/INTERACTION-SPEC.md` before working on it.
+the actual product surface; read `app/INTERACTION-SPEC.md` before working on it.
+Run it by opening `app/index.html`, or append `?demo=1` to load a pre-seeded
+branching session (useful for screenshots and manual testing).
 
 Every design folder has the same three files:
 
