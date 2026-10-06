@@ -3,114 +3,193 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Qriously — What made you Qrious today?</title>
-  <meta name="description" content="Ask anything. Qriously turns your curiosity into understanding." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <title>Qriously — Design Directions</title>
+  <style>
+    :root {
+      --bg: #0b0b12;
+      --ink: #f4f2ff;
+      --dim: #a9a4c9;
+      --faint: #6f6a92;
+      --line: rgba(255, 255, 255, 0.1);
+      --font: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(120% 80% at 50% -10%, #16132e 0%, var(--bg) 60%);
+      color: var(--ink);
+      font-family: var(--font);
+      padding: 56px clamp(20px, 5vw, 48px) 72px;
+    }
+
+    .wrap { max-width: 1000px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 44px; }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.7rem, 4vw, 2.6rem);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--dim);
+      font-size: 0.98rem;
+    }
+
+    h2 {
+      margin: 40px 0 16px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 18px;
+    }
+
+    a.design {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 20px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      color: inherit;
+      text-decoration: none;
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 0.28s, box-shadow 0.28s;
+    }
+
+    a.design:hover {
+      transform: translateY(-5px);
+      border-color: rgba(255, 255, 255, 0.28);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .swatches {
+      display: flex;
+      gap: 7px;
+      height: 48px;
+    }
+
+    .swatches span {
+      flex: 1;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .name {
+      font-size: 1.12rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .desc {
+      margin: -8px 0 0;
+      color: var(--dim);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .open {
+      margin-top: 2px;
+      font-size: 0.82rem;
+      color: var(--faint);
+    }
+
+    footer {
+      margin-top: 48px;
+      color: var(--faint);
+      font-size: 0.82rem;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-  <div class="aurora" aria-hidden="true">
-    <span class="blob blob-violet"></span>
-    <span class="blob blob-cyan"></span>
-    <span class="blob blob-amber"></span>
+  <div class="wrap">
+    <header>
+      <h1>Qriously — design directions</h1>
+      <p>Nine takes on the same first question. Each is standalone; open one to preview.</p>
+    </header>
+
+    <h2>Originals</h2>
+    <div class="grid">
+      <a class="design" href="nocturne/index.html">
+        <div class="swatches"><span style="background:#07070c"></span><span style="background:#7c5cff"></span><span style="background:#42e8e0"></span><span style="background:#ffb454"></span></div>
+        <span class="name">Nocturne</span>
+        <p class="desc">Dark, glowing, animated. Curiosity as the only light in the room.</p>
+        <span class="open">Open preview →</span>
+      </a>
+      <a class="design" href="daylight/index.html">
+        <div class="swatches"><span style="background:#f7f6f2"></span><span style="background:#191a1e"></span><span style="background:#2f5d8a"></span><span style="background:#bf6b45"></span></div>
+        <span class="name">Daylight</span>
+        <p class="desc">Light, airy, editorial. Calm, trustworthy, lots of whitespace.</p>
+        <span class="open">Open preview →</span>
+      </a>
+      <a class="design" href="playtime/index.html">
+        <div class="swatches"><span style="background:#fff7e8"></span><span style="background:#ff6b5c"></span><span style="background:#ffc93c"></span><span style="background:#4cc3ff"></span><span style="background:#9b6bff"></span></div>
+        <span class="name">Playtime</span>
+        <p class="desc">Playful and colorful. Rounded, energetic, confetti on submit.</p>
+        <span class="open">Open preview →</span>
+      </a>
+    </div>
+
+    <h2>Print &amp; Graphic</h2>
+    <div class="grid">
+      <a class="design" href="blueprint/index.html">
+        <div class="swatches"><span style="background:#0a2545"></span><span style="background:#7fd4ff"></span><span style="background:#f2fbff"></span><span style="background:#ffcf6b"></span></div>
+        <span class="name">Blueprint</span>
+        <p class="desc">Technical drawing. Cyan grid, dimension line, title block.</p>
+        <span class="open">Open preview →</span>
+      </a>
+      <a class="design" href="riso/index.html">
+        <div class="swatches"><span style="background:#f3ede1"></span><span style="background:#ff2e63"></span><span style="background:#1f4fff"></span><span style="background:#16130f"></span></div>
+        <span class="name">Riso Zine</span>
+        <p class="desc">Two spot colors, misregistration, photocopy grain.</p>
+        <span class="open">Open preview →</span>
+      </a>
+      <a class="design" href="atelier/index.html">
+        <div class="swatches"><span style="background:#0c0b0a"></span><span style="background:#c9a55a"></span><span style="background:#ece7dc"></span><span style="background:#6a6354"></span></div>
+        <span class="name">Luxury Atelier</span>
+        <p class="desc">Near-black and gold hairlines, high-contrast Bodoni serif.</p>
+        <span class="open">Open preview →</span>
+      </a>
+    </div>
+
+    <h2>Digital &amp; Technical</h2>
+    <div class="grid">
+      <a class="design" href="liquidglass/index.html">
+        <div class="swatches"><span style="background:#0a0e1c"></span><span style="background:#8f7bff"></span><span style="background:#2fd4c8"></span><span style="background:#ff6ec7"></span><span style="background:#ffb35c"></span></div>
+        <span class="name">Liquid Glass</span>
+        <p class="desc">Frosted glass over a fluid gradient. Premium calm-tech.</p>
+        <span class="open">Open preview →</span>
+      </a>
+      <a class="design" href="questlog/index.html">
+        <div class="swatches"><span style="background:#17120c"></span><span style="background:#e0ac4e"></span><span style="background:#f2e5c4"></span><span style="background:#5cc98a"></span></div>
+        <span class="name">Quest Log</span>
+        <p class="desc">RPG HUD, XP bar, quest cards. Learning as adventure.</p>
+        <span class="open">Open preview →</span>
+      </a>
+      <a class="design" href="clay/index.html">
+        <div class="swatches"><span style="background:#ece7fc"></span><span style="background:#b9a8ff"></span><span style="background:#a6f0d8"></span><span style="background:#ffc9b0"></span><span style="background:#a9d4ff"></span></div>
+        <span class="name">Clay Toy</span>
+        <p class="desc">Puffy claymorphism. Soft shadows, squishy, tactile.</p>
+        <span class="open">Open preview →</span>
+      </a>
+    </div>
+
+    <footer>Each design lives in its own folder and is fully standalone.</footer>
   </div>
-  <canvas id="particles" aria-hidden="true"></canvas>
-
-  <header class="topbar">
-    <a class="brand" href="#" aria-label="Qriously home">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-          <circle cx="11" cy="11" r="7" />
-          <path d="M20 20l-3.5-3.5" />
-        </svg>
-      </span>
-      <span class="brand-name">Qriously</span>
-    </a>
-    <nav class="topnav">
-      <a class="navlink" href="#">Sign in</a>
-      <a class="navbtn" href="#">Get started</a>
-    </nav>
-  </header>
-
-  <main class="stage">
-    <p class="eyebrow">Ask anything · Learn everything</p>
-
-    <h1 class="hero">
-      What made you
-      <span class="spark">Qrious</span>
-      today?
-    </h1>
-
-    <form class="ask" id="askForm" autocomplete="off">
-      <span class="ask-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-          <path d="M12 17h.01" />
-        </svg>
-      </span>
-      <input
-        id="askInput"
-        name="question"
-        type="text"
-        placeholder="I've always wondered…"
-        aria-label="What made you Qrious today?"
-      />
-      <button type="submit" class="ask-btn">
-        <span>Ask</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12h14" />
-          <path d="M13 6l6 6-6 6" />
-        </svg>
-      </button>
-    </form>
-
-    <p class="hint">Press <kbd>Enter</kbd> to ask · No sign-up needed</p>
-
-    <section class="samples" id="samples" aria-label="Sample questions">
-      <p class="samples-label">Need a spark? Try one</p>
-      <div class="cards">
-        <button class="card" data-q="Why is the sky blue?">
-          <span class="card-tag">Physics</span>
-          <span class="card-text">Why is the sky blue?</span>
-          <span class="card-go" aria-hidden="true">→</span>
-        </button>
-        <button class="card" data-q="How do black holes bend time?">
-          <span class="card-tag">Space</span>
-          <span class="card-text">How do black holes bend time?</span>
-          <span class="card-go" aria-hidden="true">→</span>
-        </button>
-        <button class="card" data-q="What did ancient people dream about?">
-          <span class="card-tag">History</span>
-          <span class="card-text">What did ancient people dream about?</span>
-          <span class="card-go" aria-hidden="true">→</span>
-        </button>
-        <button class="card" data-q="Can you learn a language while you sleep?">
-          <span class="card-tag">Mind</span>
-          <span class="card-text">Can you learn a language while you sleep?</span>
-          <span class="card-go" aria-hidden="true">→</span>
-        </button>
-      </div>
-    </section>
-
-    <section class="response" id="response" hidden aria-live="polite">
-      <p class="response-label">You asked</p>
-      <p class="response-q" id="responseQ"></p>
-      <p class="response-status" id="responseStatus">
-        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        <span class="response-note">Let's pull that thread together…</span>
-      </p>
-      <button type="button" class="response-reset" id="responseReset">Ask something else</button>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <span>© 2026 Qriously</span>
-    <span class="footer-dot" aria-hidden="true">·</span>
-    <span>Stay curious.</span>
-  </footer>
-
-  <script src="script.js"></script>
 </body>
 </html>

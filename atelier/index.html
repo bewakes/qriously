@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Qriously — What made you Qrious today?</title>
+  <meta name="description" content="Ask anything. Qriously turns your curiosity into understanding." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400;1,6..96,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="glow" aria-hidden="true"></div>
+
+  <header class="masthead">
+    <a class="brand" href="../index.html" aria-label="Qriously home">
+      <span class="brand-name">Qriously</span>
+      <span class="brand-sub">Atelier of Curiosity</span>
+    </a>
+    <nav class="topnav">
+      <a class="navlink" href="#">Sign in</a>
+      <a class="navbtn" href="#">Get started</a>
+    </nav>
+  </header>
+
+  <main class="stage">
+    <p class="eyebrow">— Est. MMXXVI —</p>
+
+    <h1 class="hero">
+      What made you
+      <em class="spark">Qrious</em>
+      today?
+    </h1>
+
+    <form class="ask" id="askForm" autocomplete="off">
+      <span class="ask-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <path d="M12 17h.01" />
+        </svg>
+      </span>
+      <input
+        id="askInput"
+        name="question"
+        type="text"
+        placeholder="Ask, beautifully…"
+        aria-label="What made you Qrious today?"
+      />
+      <button type="submit" class="ask-btn">
+        Ask
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14" />
+          <path d="M13 6l6 6-6 6" />
+        </svg>
+      </button>
+    </form>
+
+    <p class="hint">Press <kbd>Enter</kbd> · A quiet place to wonder</p>
+
+    <section class="samples" id="samples" aria-label="Sample questions">
+      <p class="samples-label">Selected promenades</p>
+      <div class="cards">
+        <button class="card" data-q="Why is the sky blue?">
+          <span class="card-num">01</span>
+          <span class="card-text">Why is the sky blue?</span>
+          <span class="card-tag">Physics</span>
+        </button>
+        <button class="card" data-q="How do black holes bend time?">
+          <span class="card-num">02</span>
+          <span class="card-text">How do black holes bend time?</span>
+          <span class="card-tag">Space</span>
+        </button>
+        <button class="card" data-q="What did ancient people dream about?">
+          <span class="card-num">03</span>
+          <span class="card-text">What did ancient people dream about?</span>
+          <span class="card-tag">History</span>
+        </button>
+        <button class="card" data-q="Can you learn a language while you sleep?">
+          <span class="card-num">04</span>
+          <span class="card-text">Can you learn a language while you sleep?</span>
+          <span class="card-tag">Mind</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="response" id="response" hidden aria-live="polite">
+      <p class="response-label">You asked</p>
+      <p class="response-q" id="responseQ"></p>
+      <p class="response-status" id="responseStatus">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="response-note">Considering…</span>
+      </p>
+      <button type="button" class="response-reset" id="responseReset">Ask again</button>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>© MMXXVI Qriously</span>
+    <span class="footer-dot" aria-hidden="true">·</span>
+    <span>Stay curious.</span>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
