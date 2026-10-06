@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Qriously — Learn by branching</title>
+  <meta name="description" content="An immersive, branching learning experience. Ask anything, then dive into any phrase." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <span class="ambient-1"></span>
+    <span class="ambient-2"></span>
+    <span class="ambient-3"></span>
+  </div>
+  <div class="motes" id="motes" aria-hidden="true"></div>
+
+  <div class="app" id="app">
+    <header class="topbar">
+      <a class="brand" href="../index.html" aria-label="Qriously home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+        </span>
+        <span class="brand-name">Qriously</span>
+        <span class="brand-tag">Lumen</span>
+      </a>
+      <div class="topbar-actions">
+        <button type="button" class="lens-chip" id="lensChip" hidden>
+          <span class="lens-chip-label">Lens</span>
+          <b id="lensChipText">—</b>
+        </button>
+        <button type="button" class="iconbtn" id="themeBtn" aria-label="Toggle colour theme">◐</button>
+        <button type="button" class="iconbtn notes-btn" id="notesBtn">
+          Notebook <span class="count" id="noteCount">0</span>
+        </button>
+        <button type="button" class="iconbtn" id="newBtn" title="New question">＋</button>
+      </div>
+    </header>
+
+    <section class="home" id="home">
+      <p class="eyebrow">Ask anything · Branch anywhere</p>
+      <h1 class="home-title">What made you <em>Qrious</em> today?</h1>
+      <form class="home-ask" id="homeForm" autocomplete="off">
+        <span class="home-ask-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <path d="M12 17h.01" />
+          </svg>
+        </span>
+        <input id="homeInput" type="text" placeholder="I've always wondered…" aria-label="What made you Qrious today?" />
+        <button type="submit">Ask</button>
+      </form>
+      <div class="home-samples">
+        <button type="button" data-q="Why is the sky blue?">Why is the sky blue?</button>
+        <button type="button" data-q="How do black holes bend time?">How do black holes bend time?</button>
+        <button type="button" data-q="Can you learn a language while you sleep?">Learn a language while you sleep?</button>
+      </div>
+    </section>
+
+    <section class="reader" id="reader" hidden>
+      <nav class="trail" id="trail" aria-label="Your path"></nav>
+      <div class="reader-grid">
+        <article class="reading">
+          <p class="reading-kicker" id="readingKicker">Answer</p>
+          <h2 class="reading-title" id="readingTitle"></h2>
+          <div class="reading-body selectable" id="readingBody" data-node-id="root"></div>
+          <div class="reading-foot">
+            <span id="readingMeta"></span>
+          </div>
+          <div class="reading-sections" id="readingSections"></div>
+        </article>
+
+        <aside class="actions" id="actions" aria-label="Your actions">
+          <div class="actions-head">
+            <span class="actions-title">Your actions</span>
+            <span class="actions-count" id="actionCount">0</span>
+            <div class="actions-nav">
+              <button type="button" id="actionPrev" aria-label="Previous action">↑</button>
+              <button type="button" id="actionNext" aria-label="Next action">↓</button>
+              <button type="button" id="actionExpand" aria-label="Expand action list">⤢</button>
+            </div>
+          </div>
+          <ul class="action-list" id="actionList"></ul>
+          <p class="actions-empty" id="actionsEmpty">Select any phrase and choose an action — it opens right here, below the text.</p>
+        </aside>
+      </div>
+    </section>
+  </div>
+
+  <div class="composer" id="composer" hidden>
+    <div class="composer-inner">
+      <form class="composer-form" id="composerForm" autocomplete="off">
+        <span class="composer-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <path d="M12 17h.01" />
+          </svg>
+        </span>
+        <input id="composerInput" type="text" placeholder="Ask a new question…" aria-label="Ask a new question" />
+        <button type="submit" class="composer-ask">Ask</button>
+      </form>
+      <div class="composer-status" id="composerStatus">
+        <span id="statusMeta">—</span>
+        <span class="status-sep">·</span>
+        <span id="statusBranches">0 actions</span>
+        <span class="composer-hint">Select text to branch</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar" id="toolbar" role="menu" aria-label="Actions for selected text" hidden>
+    <div class="toolbar-preview" id="toolbarPreview"></div>
+    <div class="toolbar-actions">
+      <button type="button" data-act="dive" role="menuitem">Dive in</button>
+      <button type="button" data-act="eli5" role="menuitem">ELI5</button>
+      <button type="button" data-act="example" role="menuitem">Examples</button>
+      <button type="button" data-act="define" role="menuitem">Define</button>
+      <button type="button" data-act="note" class="tb-note" role="menuitem">Save note</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="lensOverlay" hidden>
+    <div class="lens-card" role="dialog" aria-modal="true" aria-labelledby="lensTitle">
+      <p class="lens-kicker">Before we begin</p>
+      <h2 class="lens-title" id="lensTitle">Tell me how you like to learn</h2>
+      <p class="lens-q" id="lensQuestion"></p>
+
+      <div class="lens-fields">
+        <div class="lens-field" data-field="familiarity">
+          <span class="lens-label">How well do you know this?</span>
+          <div class="seg">
+            <button type="button" data-value="new">New to this</button>
+            <button type="button" data-value="basics">Know the basics</button>
+            <button type="button" data-value="expert">I'm an expert</button>
+          </div>
+        </div>
+        <div class="lens-field" data-field="depth">
+          <span class="lens-label">How deep are we going?</span>
+          <div class="seg">
+            <button type="button" data-value="quick">Quick · 2 min</button>
+            <button type="button" data-value="solid">Solid · 7 min</button>
+            <button type="button" data-value="deep">Deep · 15 min</button>
+          </div>
+        </div>
+        <div class="lens-field" data-field="style">
+          <span class="lens-label">What style suits you?</span>
+          <div class="seg">
+            <button type="button" data-value="plain">Plain</button>
+            <button type="button" data-value="analogy">With analogies</button>
+            <button type="button" data-value="technical">Technical</button>
+          </div>
+        </div>
+        <div class="lens-field" data-field="goal">
+          <span class="lens-label">What's the goal? (optional)</span>
+          <div class="seg">
+            <button type="button" data-value="curious">Just curious</button>
+            <button type="button" data-value="project">For a project</button>
+            <button type="button" data-value="exam">Exam prep</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="lens-actions">
+        <button type="button" class="lens-skip" id="lensSkip">Skip with defaults</button>
+        <button type="button" class="lens-start" id="lensStart">Start reading</button>
+      </div>
+    </div>
+  </div>
+
+  <aside class="notebook" id="notebook" hidden aria-label="Notebook">
+    <div class="notebook-head">
+      <h2>Notebook</h2>
+      <button type="button" class="iconbtn" id="notesClose" aria-label="Close notebook">✕</button>
+    </div>
+    <p class="notebook-empty" id="notesEmpty">Saved phrases and context land here. Select text → Save note.</p>
+    <ul class="note-list" id="noteList"></ul>
+    <button type="button" class="notebook-export" id="notesExport" hidden>Copy as outline</button>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="content.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
