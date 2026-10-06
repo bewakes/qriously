@@ -45,10 +45,11 @@ Ask  →  Calibrate  →  Read  →  Branch  →  Nest  →  Save  →  (Compose
 | Home | The single input. One field, one question. |
 | Calibration lens | One-tap personalization; skippable, editable anytime. |
 | Reader | Reading column + branch list + trail. The heart of the app. |
-| Composer | A persistent bottom ask box, present on every screen. |
-| Action section | Collapsible result rendered inline below the content, titled with the selection; nests recursively. |
-| Your actions | Creation-ordered index of every action; one active; prev/next; expandable. |
-| Selection toolbar | Contextual actions for the selected span. |
+| Composer | A persistent bottom ask box; asking here **appends a new question section** below the current reading (it does not replace the session). |
+| Question section | A new question (from the composer) rendered as a section below the current reading, with its own answer and nested dives. |
+| Dive section | A **Dive in** result rendered inline below the content, titled with the selection; dives nest recursively. |
+| Side rail ("Wider angles") | Non-dive results (**ELI5 / Examples / Define**) rendered as collapsible cards alongside the reading sheet. |
+| Selection toolbar | Contextual actions for a span, plus (when it has results) a list of existing results to jump to. |
 | Trail | Clickable ancestry; doubles as a study outline. |
 | Notebook | Saved spans + context + generated text; assemble/export. |
 
@@ -59,9 +60,10 @@ HOME
  └─[ask]─► CALIBRATION LENS        (skippable → defaults)
               └─[start reading]─► READER
                     ├─[select span]─► SELECTION TOOLBAR
-                    │                    ├─ Dive in ─┐
-                    │                    ├─ ELI5     │→ BRANCH CARD (in rail)
-                    │                    ├─ Examples ┘   ├─[select span]─► nested card…
+                    │                    ├─ Dive in ──► DIVE SECTION (inline below)
+                    │                    ├─ ELI5     ┐
+                    │                    ├─ Examples ┼─► SIDE CARD (Wider angles rail)
+                    │                    │           ┘   ├─[select span]─► dive / card…
                     │                    └─ Save ──► NOTEBOOK
                     ├─[collapse]  fold subtree
                     ├─[trail]     jump to any ancestor / the root
@@ -95,43 +97,45 @@ A single card shown immediately after the query. Every field has a sensible defa
 ├───────────────────────────────────────────────────────────────┤
 │ TRAIL     Question › Rayleigh scattering › violet …            │
 ├───────────────────────────────┬───────────────────────────────┤
-│  READING (sheet)              │  YOUR ACTIONS      ↑ ↓ ⤢      │
-│                               │  ▸ DIVE  "violet"      L2     │
-│  …answer…                     │  (collapsed = active entry;    │
-│  3 sources · verified         │   expand for the whole list)  │
-│                               │                               │
+│  READING (sheet)              │  WIDER ANGLES                  │
+│                               │  ◆ ELI5  "nitrogen"            │
+│  …answer…                     │  …card, collapsible…           │
+│  3 sources · verified         │  ◆ EXAMPLES  "wavelength"      │
+│                               │  …card, collapsible…           │
 │  │▸ DIVE  "Rayleigh scat…"    │                               │
 │  │  …inline, collapsible…      │                               │
-│  │  │▸ ELI5  "wavelength"      │                               │
-│  │  │  …nested inline…         │                               │
+│  │  │▸ DIVE  "violet"           │                               │
+│  │  │  …nested dive…            │                               │
 ├───────────────────────────────┴───────────────────────────────┤
 │ COMPOSER   [ ask a new question…          ] [ Ask ]            │
 │            ≈ 1 min read · 5 actions                            │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-- **Reading sheet:** measure ~720px, generous line-height; holds the root answer plus inline action sections.
-- **Action sections:** every action renders as a **collapsible section below the content**, titled with the selected phrase and labelled by kind. Sections **nest** — select inside any section to go deeper. Dive sections are primary; ELI5 / Define / Examples are lighter callouts.
-- **Your actions:** a slim, creation-ordered index of every action. One entry is active; `↑`/`↓` step prev/next and scroll to it; `⤢` expands the list. It collapses to the active entry by default.
+- **Reading sheet:** measure ~720px, generous line-height; holds the root answer plus inline **dive sections**. A quiet meta line (sources · verified) sits directly under the title, above the body.
+- **Dive sections:** only **Dive in** renders as a collapsible section **below the content**, titled with the selected phrase. Dives **nest** under dives — select inside a dive to go deeper. This is the only content that grows the sheet.
+- **Wider angles (side rail):** non-dive actions (**ELI5 / Examples / Define**) render as collapsible **cards in the right rail**, never below the text. They are always one step off the main line of reading.
 - **Trail:** horizontal breadcrumb of the active path; click any crumb to jump.
-- **Composer:** persistent bottom ask box with read-time/action counters.
+- **Composer:** persistent bottom ask box with read-time/action counters. Submitting **adds a new question section** below the current content (streamed, with its own dives nested under it and its asides in the side rail), rather than wiping the reader. The session can therefore hold several questions stacked down the sheet; the trail's base crumb follows the active question.
 
 ### 7.2 Reading behavior
 - Content **streams** token-by-token; a skeleton holds layout to avoid jumps.
 - Paragraphs fade/slide in gently; nothing bounces.
-- Sections open **inline**, so the sheet reflows — mitigated by per-section collapse, capped indentation, and the "Your actions" index for jumping.
+- Dives open **inline**, so the sheet reflows — mitigated by per-section collapse, capped indentation, the trail and the results menu for jumping. Asides sit in the side rail and never reflow the sheet.
 - Long content: sticky subsection headers and a progress indicator.
 
 ### 7.3 Anchor & action marks
 - Nothing is highlighted on arrival. A span becomes an **anchor** only once the user acts on it.
-- Actioned anchors are deliberately **subtle**: a dotted underline plus a tiny, muted kind glyph (`↓` `◔` `❖` `≡`). They must not compete with the prose.
-- Clicking the anchor text opens the action menu; clicking the tiny glyph scrolls to that action's section.
+- Actioned anchors are deliberately **subtle**: a dotted underline plus a tiny, muted **direction marker** that says where the result lives — `↓` (bottom) for Dive in, `→` (side) for ELI5 / Examples / Define, `★` for a saved note. An anchor with both a dive and an aside shows both, e.g. `↓→`. Kind is still carried by the marker's colour and its tooltip. They must not compete with the prose.
+- Clicking the anchor opens the **results menu** (see §8): existing results first, action buttons below, so you can jump to what exists or branch again. Clicking the tiny marker jumps to the single existing result, or opens that menu when there are several.
 - The active action's source anchor gets a faint tint so the origin is findable.
 - Anchors are semantic (a phrase), not pixel ranges, so they survive re-renders and streaming.
 
 ## 8. Selection toolbar
 
-Appears anchored just above the selection (or as a bottom bar on mobile). Shows the selected text as a quiet preview.
+Appears anchored just above the selection (or as a bottom bar on mobile). Shows the selected text as a quiet preview, then **any results that phrase already has**, then the action buttons.
+
+When the phrase already has results, the toolbar is a **results menu**: a scannable list (`↓ Dive · "…"`, `→ ELI5 · "…"`) above the action buttons. Click a row to scroll to that result and expand it; the buttons below still create another. This means one click on an actioned phrase both reveals what exists and offers the way to go further. If the phrase has no results yet, only the action buttons show. Clicking the inline **marker** jumps straight to the result when there is exactly one, and opens this menu when there are several.
 
 | Action | Kind | What it produces | MVP |
 |---|---|---|---|
@@ -149,43 +153,47 @@ Appears anchored just above the selection (or as a bottom bar on mobile). Shows 
 - Dismiss on Escape / click-away; focusing returns to the span.
 - Repeat actions allowed (branch the same span twice for two angles).
 
-## 9. Actions: inline sections + index
+## 9. Actions: dives inline, asides on the side
 
-An **action** is what the user does to a span (Dive in, ELI5, Examples, Define). Each action produces both an **inline section** and an **index entry**.
+An **action** is what the user does to a span (Dive in, ELI5, Examples, Define). Actions are split by kind, deterministically:
 
-### 9.1 Action section anatomy
+- **Dive in** → an inline **dive section** below the content, recursively nested under dives.
+- **ELI5 / Examples / Define** → a **side card** in the "Wider angles" rail.
+
+### 9.1 Dive section anatomy
 
 ```
-│▸ DIVE  "Rayleigh scattering"                  L1   ✕
+│▸ DIVE  "Rayleigh scattering"                       ✕
 │   …streamed explanation, fully selectable…
-│   │▸ ELI5  "wavelength"                        L2   ✕
-│   │   …nested inline…
+│   │▸ DIVE  "violet"                                 ✕
+│   │   …nested dive…
 ```
 
 - The section renders **below the content it was taken from**, inside the reading sheet.
-- Its header shows a collapse toggle, the kind, the selected phrase (as the title), the depth, and remove.
-- The body is fully selectable, so any action can be taken again inside it — **recursion is inline**, not a new window.
+- Its header shows a collapse toggle, the kind, the selected phrase (as the title), and remove. Depth is **not** shown as a label — it is conveyed by indentation, the trail and the results menu.
+- The body is fully selectable, so a dive can be taken again inside it — **recursion is inline**, not a new window.
 
 ### 9.2 Recursion
-- Selecting inside a section creates a **nested** section beneath it.
+- Selecting inside a **dive** and choosing Dive in creates a **nested** dive beneath it.
+- Selecting inside a **side card** and choosing Dive in still renders the dive below the main content (dives never nest inside the rail). Choosing ELI5 / Examples / Define always lands a card in the rail.
 - Depth is unbounded; indentation is capped so deep chains stay readable, and each section collapses independently.
-- `↑`/`↓` in "Your actions" walks every action in creation order and scrolls to it.
 
-### 9.3 Your actions (index)
-- Lists every action in creation order, indented by depth; the active one is highlighted.
-- Click a row to scroll to that section (and expand it if collapsed).
-- `⤢` expands the list from "active entry only" to the full list.
-- There is no floating window and no separate back-stack: the sections *are* the content, so ancestry is spatial (indent + the trail breadcrumb).
+### 9.3 Wider angles (side rail)
+- Lists every non-dive action as a collapsible card, newest last; the card for the active action is highlighted.
+- Click a card header to scroll to it; the toggle collapses it; `✕` removes it (with any descendants).
+- Side cards are fully selectable, so they can spawn further dives (which go below) or more asides (which go to the rail).
+- Ancestry is spatial: a dive's indent plus the trail breadcrumb.
 
 ### 9.4 Action kinds (visual language)
-Each kind gets a distinct icon/accent: `dive` `↓`, `eli5` `◔`, `example` `❖`, `define` `≡`, `note` `★` (plus `visual`, `relevance` later). The same glyph appears on the actioned word, the index row, and the section header, so an action is traceable end to end. Dive sections are full weight; the other kinds are lighter callouts. Color is never the only signal.
+The inline marker on an actioned word is a **direction**, not a kind: `↓` means a dive below, `→` means an aside on the side, `★` a saved note (an anchor with more than one kind shows the combined arrows). Each kind still has its own colour and label — `dive`, `eli5`, `example`, `define`, `note` (plus `visual`, `relevance` later) — used on the dive / side-card header, so a word traces to its result. Dive sections are full weight; side cards are lighter. Colour is never the only signal.
 
-> Pushback logged: inline sections reintroduce reflow/deep-indentation risk (the reason the margin-rail was proposed originally). Mitigations: per-section collapse, capped indentation, and the "Your actions" index for jumping. If it proves too noisy at depth, the fallback is the single floating window (see the v2/v4 decision-log entries).
+> Pushback logged: inline dives reintroduce reflow/deep-indentation risk (the reason the margin rail was proposed originally). Mitigations: only dives grow the sheet (asides are off to the side), per-section collapse, capped indentation, and the trail. If dives still prove too noisy at depth, the fallback is the single floating window (see the v2/v4 decision-log entries).
 
 ## 10. Trail
 
-The trail is the ordered ancestry of the current focus: `Root › A › B › C`.
+The trail is the ordered ancestry of the current focus: `Question › A › B › C`.
 
+- The first crumb is the **base question** of the active path — the original question or a later one added from the composer — and scrolls to that question's sheet.
 - Click any crumb to set focus there (the rail scrolls/filters to that subtree).
 - The trail is **persistent history**, not just the current path; siblings are discoverable from it (a subtle "x other branches here" affordance).
 - It doubles as a **study outline**: exportable as markdown (headings = trail, body = notes).
@@ -257,17 +265,19 @@ No backend. Ship a hand-authored graph for one or two seed topics.
 | 760–1099px | Reading sheet full width; branch list stacks below; window docks bottom. |
 | < 760px | Reading full-width; the branch window becomes a full-width bottom layer (the replace + back-stack model already behaves like a navigation stack). Selection toolbar becomes a bottom bar. |
 
-## 15. Visual direction — "Lumen, the page lights up as you learn"
+## 15. Visual direction — calm, near-flat, one accent
 
-The visual system is now explicitly **experience-first**: delight and immersion are the current priority, ahead of retention mechanics (which come later, and are designed to coexist rather than crowd it out).
+**History:** early versions used a luminous "Lumen" direction ("the page lights up as you learn") — an ambient canvas driven by `--energy`, motes and bloom. That read as too flashy and was retired in v6; the header is kept here as the record of that turn.
+
+The visual system is **reading-first**: the prose and the branching structure carry the experience, not decoration. Delight comes from motion that clarifies (unfold, bloom) rather than atmosphere that competes.
 
 - **Typography:** humanist serif for prose (*Source Serif 4*), geometric sans for UI (*Inter*), mono for labels/citations (*JetBrains Mono*). Large serif drop cap on the root answer.
-- **Reading surface:** a translucent, softly-shadowed "sheet" floating on a deep luminous canvas, with a warm spotlight behind the title.
-- **Ambient energy:** three drifting color fields (violet / amber / teal) whose intensity is driven by a single CSS variable `--energy` that **increases as the learner branches** — exploration literally brightens the room. Slow rising motes add life.
-- **Branching as unfolding:** acting on a span emits a **bloom** (a radial light pulse from the word) and the branch layer **unfolds** into focus (scale + blur → clear), rather than sliding panels. Calm prose, alive edges.
-- **Color:** deep warm near-black `#0b0a10` (light toggle retained); one warm accent (`amber`) plus violet/teal depth; a distinct gem-like palette per branch kind.
-- **Motion:** the core metaphor is *unfolding*, never bouncing/popping. Reduced motion collapses all of it (and hides motes).
-- **Tone:** a living knowledge environment, not a static "premium reading app."
+- **Reading surface:** a quietly-shadowed "sheet" on a calm, near-flat dark canvas.
+- **Calm, not luminous (v6):** the drifting ambient colour fields, rising motes and the `--energy` glow model were removed after they read as "too flashy". A single flat accent carries emphasis; gradients and glow-on-hover were stripped from buttons, the title, links and cards.
+- **Branching as unfolding:** acting on a span emits a small **bloom** (a short radial pulse from the word) and the new section/card **unfolds** into focus (scale + blur → clear), rather than sliding panels. Calm prose, alive edges.
+- **Color:** deep warm near-black `#0b0a10` (light toggle retained); one warm accent (`amber`); a distinct gem-like palette per branch kind.
+- **Motion:** the core metaphor is *unfolding*, never bouncing/popping. Reduced motion collapses all of it.
+- **Tone:** a quiet knowledge environment; restrained rather than premium-spectacle.
 
 
 ## 16. Edge cases & states
@@ -329,29 +339,38 @@ The visual system is now explicitly **experience-first**: delight and immersion 
 - Rationale: the rail grew unbounded and the pre-highlights read as "already visited"; nested windows would sprawl. The tradeoff accepted is losing simultaneous parent/child view, recovered via the breadcrumb, jump-back, and the active-anchor highlight on the origin word.
 - **v3 (visual):** an explicit **experience-first** push. Luminous ambient canvas that intensifies with branching (`--energy`), bloom-on-branch, and unfold transitions. Home keeps a centered hero input; the reading view uses a persistent bottom composer aligned to the reading column. Rationale: aesthetic quality drives engagement/motivation now; retention mechanics (retrieval, learner state) are deferred but designed to sit alongside this rather than replace it.
 - **v4:** the **spark map was cut** — a passive overlay that did no work and read as "look what I did." Revisit only if it can earn a job (retrospective artifact / live orientation), not as decoration.
-- **v5 (current):** **action sections render inline** below the content (collapsible, titled with the selection, recursively nestable), replacing the floating branch window. The right panel is renamed **"Your actions"** (a collapsible index). Anchor marks were made **subtler** (dotted underline + tiny muted glyph). Home keeps a centered hero input; the reading view has a persistent bottom composer aligned to the reading sheet.
+- **v5:** **action sections render inline** below the content (collapsible, titled with the selection, recursively nestable), replacing the floating branch window. The right panel is renamed **"Your actions"** (a collapsible index). Anchor marks were made **subtler** (dotted underline + tiny muted glyph). Home keeps a centered hero input; the reading view has a persistent bottom composer aligned to the reading sheet.
+- **v6:** actions are **split by kind**. Only **Dive in** renders inline below the content (and nests under dives); **ELI5 / Examples / Define** render as **cards in the right rail**, now titled **"Wider angles"**, replacing the flat action index and its prev/next/expand controls. Rationale: the sheet should grow only along the main line of inquiry; asides belong beside it, not beneath it. Branches taken from a side card obey the same rule (dives go below, asides stay in the rail). Same change **calms the visuals**: the drifting ambient colour fields and rising motes are removed, buttons/title/links lose their gradients and glow, and the reading sheet sits on a flat surface — the "Lumen" energy model (`--energy`, bloom-on-action tied to it) is retired in favour of a quiet, near-flat dark canvas.
+- **v7:** clicking an already-actioned phrase opens a **results menu** in the selection toolbar: the phrase's existing results are listed first (kind, phrase; click to jump + auto-expand), with the action buttons below so more branches can be created from the same menu. This fixes the earlier dead end where only the *latest* result was reachable (via the marker), hiding earlier ones. Rule for the marker: one result → jump to it; several → open the menu. Multiple results are always presented as a **list** (not a cycle), so each is directly reachable.
+- **v8 (current):** two changes. (1) The `L1`/`L2` depth labels were **removed** from section headers and the results menu — depth is conveyed spatially by indentation and the trail. (2) The bottom composer **appends a new question section below** the current reading instead of replacing the session (`addQuestion()`, `generateRoot()` in `content.js`), so a session can accumulate several questions. Each question section owns its nested dives; its asides join the shared side rail and its inline marker on the origin uses the same direction rules. Removing a question removes its descendants; the trail's leading crumb is the active path's base question.
 
 ## 21. Implementation map
 
 - `index.html` — app shell: top bar (lens chip, theme, notebook, new), home
   (centered input + samples), reader (trail, reading sheet with
-  `#readingBody` + `#readingSections`, and the `#actions` index), the bottom
-  composer, selection `#toolbar`, the lens overlay, and the notebook drawer.
+  `#readingBody` + `#readingSections` for dives, and the `#actions` rail
+  containing `#sideList` for asides), the bottom composer, selection `#toolbar`,
+  the lens overlay, and the notebook drawer.
 - `script.js` — all behavior. `state = { lens, question, nodes, rootId, order,
-  activeId, counter, toolbarContext, marks, notes }`. Entry: `startReader()`.
-  Actions: `createSection()` → `registerMark()` → `applyMarks()`. Index:
-  `renderActions()` / `focusSection()` / `navigate()`. Sections:
-  `toggleSection()` / `removeSection()`. Anchors/marks in `decorateAnchor()`;
-  toolbar in `showToolbar()` / `performAction()`. Lens/theme/notes/composer and
-  the experience layer (`setEnergy`, `bloomAt`, `initMotes`) are here too.
+  activeId, counter, toolbarContext, marks, notes }`. Entry: `startReader()`
+  (first question) and `addQuestion()` (later questions from the composer).
+  Actions: `createSection()` (routes dives to `diveHost(parent)` and asides to
+  `#sideList`) → `registerMark()` → `applyMarks()`. Rail:
+  `renderSide()` / `updateActions()` / `focusSection()`. Sections:
+  `toggleSection()` / `removeSection()` (removal walks the graph via
+  `descendantIds()`). Anchors/marks in `decorateAnchor()`; toolbar + results menu
+  in `showToolbar()` / `renderToolbarResults()` / `performAction()`; trail in
+  `renderTrail()` / `rootOf()`; `bloomAt()` is the only remaining
+  experience-layer effect. Lens/theme/notes/composer are here too.
 - `content.js` — the mock generator. `SEED_ROOT.body` is the answer text
   (`**phrase**` marks curated anchors). `LIBRARY` maps `normalizeKey(phrase)` →
   `{ dive, eli5, example, define }` bodies. `generateNode(parent, anchor, kind,
   lens)` returns `{ title, body, citations, estReadSeconds }` and falls back to
-  `synthesize()`. **Swap this function for a real LLM behind the same
-  signature.**
+  `synthesize()`; `generateRoot(question, lens)` answers a brand-new question.
+  **Swap these functions for a real LLM behind the same signatures.**
 - `styles.css` — tokens in `:root` / `html[data-theme="dark|light"]`. Key
-  selectors: `.anchor`/`.anchor-icon`, `.action-section`/`.as-*`,
-  `.actions`/`.action-row`/`.ar-*`, `.composer*`, `.ambient*`/`.mote`/
-  `.bloom-pulse`. `--energy` drives ambience.
+  selectors: `.anchor`/`.anchor-icon`, `.action-section`/`.as-*` (dives),
+  `.question-section` (questions), `.side-list`/`.side-card` (asides),
+  `.toolbar-results`/`.toolbar-result`, `.actions`, `.composer*`, `.bloom-pulse`.
+  The ambient/mote layers and `--energy` were removed in v6.
 - Demo: `?demo=1` seeds a session in `script.js`.

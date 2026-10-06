@@ -15,16 +15,14 @@ const readingBody = $("readingBody");
 const readingSections = $("readingSections");
 const readingMeta = $("readingMeta");
 const trailEl = $("trail");
-const actionList = $("actionList");
+const sideList = $("sideList");
 const actionCount = $("actionCount");
 const actionsEmpty = $("actionsEmpty");
-const actionPrev = $("actionPrev");
-const actionNext = $("actionNext");
-const actionExpand = $("actionExpand");
 const statusMeta = $("statusMeta");
 const statusBranches = $("statusBranches");
 const toolbar = $("toolbar");
 const toolbarPreview = $("toolbarPreview");
+const toolbarResults = $("toolbarResults");
 const lensOverlay = $("lensOverlay");
 const lensQuestion = $("lensQuestion");
 const lensChip = $("lensChip");
@@ -38,9 +36,9 @@ const notesEmpty = $("notesEmpty");
 const noteList = $("noteList");
 const notesExport = $("notesExport");
 const toastEl = $("toast");
-const motesLayer = $("motes");
 
-const KIND_GLYPHS = { dive: "↓", eli5: "◔", example: "❖", define: "≡", note: "★" };
+const KIND_LOC = { dive: "↓", eli5: "→", example: "→", define: "→", note: "★" };
+const KIND_ORDER = ["dive", "eli5", "example", "define", "note"];
 
 const state = {
   lens: { familiarity: "basics", depth: "solid", style: "plain", goal: "curious" },
@@ -123,8 +121,13 @@ function containerEl(id) {
   return node ? node.bodyEl : null;
 }
 
-function setEnergy(value) {
-  document.documentElement.style.setProperty("--energy", value.toFixed(2));
+function diveHost(parent) {
+  let n = parent;
+  while (n) {
+    if (n.sectionsEl) return n.sectionsEl;
+    n = n.parentId ? state.nodes.get(n.parentId) : null;
+  }
+  return readingSections;
 }
 
 function bloomAt(rect) {
@@ -167,18 +170,17 @@ function createSection(containerId, anchor, kind) {
     collapsed: false,
   };
   state.nodes.set(id, node);
-  state.order.push(id);
 
-  const el = document.createElement("section");
-  el.className = `action-section kind-${kind}`;
+  const isDive = kind === "dive";
+  const el = document.createElement(isDive ? "section" : "li");
+  el.className = isDive ? "action-section kind-dive" : `side-card kind-${kind}`;
   el.dataset.id = id;
   el.dataset.depth = String(depth);
   el.innerHTML = `
     <header class="as-head">
-      <button type="button" class="as-toggle" aria-expanded="true" aria-label="Collapse">▾</button>
+      <button type="button" class="as-toggle" aria-expanded="true" aria-label="Collapse">▼</button>
       <span class="as-kind">${escapeHtml(KIND_LABELS[kind] || kind)}</span>
       <button type="button" class="as-anchor">“${escapeHtml(clean)}”</button>
-      <span class="as-depth">L${depth}</span>
       <button type="button" class="as-remove" aria-label="Remove section">✕</button>
     </header>
     <div class="as-body selectable"></div>
@@ -186,22 +188,72 @@ function createSection(containerId, anchor, kind) {
   `;
   node.el = el;
   node.bodyEl = el.querySelector(".as-body");
-  node.sectionsEl = el.querySelector(".as-sections");
   node.bodyEl.dataset.nodeId = id;
 
-  const host = parent.isRoot ? readingSections : parent.sectionsEl;
-  host.appendChild(el);
+  if (isDive) {
+    node.sectionsEl = el.querySelector(".as-sections");
+    diveHost(parent).appendChild(el);
+  } else {
+    sideList.appendChild(el);
+  }
+  state.order.push(id);
 
   streamInto(node.bodyEl, node.body, () => applyMarks(id));
 
   registerMark(containerId, clean, kind, id);
   bloomAt(anchorRect(containerId, clean));
-  setEnergy(Math.min(1, 0.32 + state.order.length * 0.09));
 
   setActive(id);
-  updateActions();
   updateStatus();
   requestAnimationFrame(() => el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" }));
+  return node;
+}
+
+function addQuestion(question) {
+  const clean = question.replace(/\s+/g, " ").trim();
+  if (!clean) return null;
+  const data = generateRoot(clean, state.lens);
+  const id = "q" + ++state.counter;
+  const node = {
+    id,
+    parentId: null,
+    depth: 0,
+    kind: "root",
+    isRoot: true,
+    anchor: clean,
+    title: data.title,
+    body: data.body,
+    citations: data.citations,
+    estReadSeconds: data.estReadSeconds,
+    collapsed: false,
+  };
+  state.nodes.set(id, node);
+
+  const el = document.createElement("section");
+  el.className = "action-section question-section kind-root";
+  el.dataset.id = id;
+  el.dataset.depth = "0";
+  el.innerHTML = `
+    <header class="as-head">
+      <button type="button" class="as-toggle" aria-expanded="true" aria-label="Collapse">▼</button>
+      <span class="as-kind">Question</span>
+      <button type="button" class="as-anchor">${escapeHtml(clean)}</button>
+      <button type="button" class="as-remove" aria-label="Remove section">✕</button>
+    </header>
+    <div class="as-body selectable"></div>
+    <div class="as-sections"></div>
+  `;
+  node.el = el;
+  node.bodyEl = el.querySelector(".as-body");
+  node.bodyEl.dataset.nodeId = id;
+  node.sectionsEl = el.querySelector(".as-sections");
+  readingSections.appendChild(el);
+  state.order.push(id);
+
+  streamInto(node.bodyEl, node.body, () => applyMarks(id));
+  setActive(id);
+  updateStatus();
+  requestAnimationFrame(() => el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }));
   return node;
 }
 
@@ -270,10 +322,17 @@ function decorateAnchor(span, rec) {
     icon.tabIndex = 0;
     span.appendChild(icon);
   }
-  icon.textContent = KIND_GLYPHS[last] || "•";
+  const ordered = KIND_ORDER.filter((k) => rec.kinds.has(k));
+  icon.textContent = Array.from(new Set(ordered.map((k) => KIND_LOC[k]))).join("") || "•";
   icon.dataset.kind = last;
-  icon.setAttribute("aria-label", `${rec.count} action${rec.count > 1 ? "s" : ""}: ${kinds.join(", ")}`);
-  icon.title = `${rec.count} action${rec.count > 1 ? "s" : ""} — ${kinds.join(", ")}`;
+  const where = [
+    ordered.includes("dive") ? "below" : null,
+    ordered.some((k) => KIND_LOC[k] === "→") ? "on the side" : null,
+    ordered.includes("note") ? "in your notebook" : null,
+  ].filter(Boolean).join(" and ");
+  const summary = `${rec.count} action${rec.count > 1 ? "s" : ""} — ${kinds.join(", ")}`;
+  icon.setAttribute("aria-label", `${summary}${where ? ` (opens ${where})` : ""}`);
+  icon.title = `${summary}${where ? ` · opens ${where}` : ""}`;
 }
 
 function highlightActive() {
@@ -291,7 +350,7 @@ function highlightActive() {
 function setActive(id) {
   if (!state.nodes.has(id)) return;
   state.activeId = id;
-  renderActions();
+  renderSide();
   renderTrail();
   highlightActive();
 }
@@ -301,7 +360,7 @@ function toggleSection(node) {
   node.el.classList.toggle("collapsed", node.collapsed);
   const btn = node.el.querySelector(".as-toggle");
   btn.setAttribute("aria-expanded", String(!node.collapsed));
-  btn.textContent = node.collapsed ? "▸" : "▾";
+  btn.textContent = node.collapsed ? "▶" : "▼";
 }
 
 function focusSection(id) {
@@ -314,54 +373,51 @@ function focusSection(id) {
   setTimeout(() => node.el.classList.remove("flash"), 900);
 }
 
+function descendantIds(id) {
+  const ids = [id];
+  const stack = [id];
+  while (stack.length) {
+    const cur = stack.pop();
+    state.order.forEach((oid) => {
+      const n = state.nodes.get(oid);
+      if (n && n.parentId === cur) {
+        ids.push(oid);
+        stack.push(oid);
+      }
+    });
+  }
+  return ids;
+}
+
 function removeSection(node) {
-  const ids = [node.id];
-  node.el.querySelectorAll(".action-section").forEach((c) => ids.push(c.dataset.id));
+  const ids = descendantIds(node.id);
+  const els = ids.map((id) => state.nodes.get(id)).filter(Boolean).map((n) => n.el);
   ids.forEach((id) => state.nodes.delete(id));
   state.order = state.order.filter((id) => !ids.includes(id));
-  node.el.remove();
-  if (!state.nodes.has(state.activeId)) state.activeId = node.parentId;
-  updateActions();
+  els.forEach((el) => el && el.remove());
+  if (!state.nodes.has(state.activeId)) state.activeId = node.parentId || state.rootId;
   updateStatus();
-  renderActions();
+  renderSide();
   renderTrail();
   highlightActive();
 }
 
-function navigate(dir) {
-  const i = state.order.indexOf(state.activeId);
-  if (i === -1) {
-    if (state.order.length) focusSection(state.order[state.order.length - 1]);
-    return;
-  }
-  const next = state.order[i + dir];
-  if (next) focusSection(next);
-}
-
 function updateActions() {
-  actionCount.textContent = String(state.order.length);
-  actionsEmpty.hidden = state.order.length > 0;
+  const count = state.order.filter((id) => {
+    const node = state.nodes.get(id);
+    return node && !node.isRoot && node.kind !== "dive";
+  }).length;
+  actionCount.textContent = String(count);
+  actionsEmpty.hidden = count > 0;
 }
 
-function renderActions() {
-  actionList.innerHTML = "";
+function renderSide() {
   state.order.forEach((id) => {
     const node = state.nodes.get(id);
-    const li = document.createElement("li");
-    li.className = "action-row kind-" + node.kind + (id === state.activeId ? " active" : "");
-    li.style.setProperty("--depth", String(node.depth - 1));
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "action-row-main";
-    btn.innerHTML = `
-      <span class="ar-icon" aria-hidden="true">${KIND_GLYPHS[node.kind] || "•"}</span>
-      <span class="ar-anchor">“${escapeHtml(node.anchor)}”</span>
-      <span class="ar-depth">L${node.depth}</span>
-    `;
-    btn.addEventListener("click", () => focusSection(id));
-    li.appendChild(btn);
-    actionList.appendChild(li);
+    if (!node || !node.el) return;
+    node.el.classList.toggle("active", id === state.activeId);
   });
+  updateActions();
 }
 
 function chainOf(id) {
@@ -376,15 +432,21 @@ function chainOf(id) {
 
 function renderTrail() {
   trailEl.innerHTML = "";
+  const chain = chainOf(state.activeId);
+  const base = chain[0];
   const root = document.createElement("button");
   root.type = "button";
-  root.className = "crumb crumb-root";
-  root.textContent = "Question";
-  root.addEventListener("click", () => document.querySelector(".reading").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }));
+  root.className = "crumb crumb-root" + (base && base.id === state.activeId ? " crumb-current" : "");
+  root.textContent = base ? truncate(base.anchor, 26) : "Question";
+  root.title = base ? base.anchor : "Question";
+  root.addEventListener("click", () => {
+    const target = base && base.el ? base.el : document.querySelector(".reading");
+    target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  });
   trailEl.appendChild(root);
 
-  chainOf(state.activeId)
-    .filter((n) => !n.isRoot)
+  chain
+    .filter((n) => n !== base)
     .forEach((node) => {
       const sep = document.createElement("span");
       sep.className = "crumb-sep";
@@ -400,18 +462,61 @@ function renderTrail() {
     });
 }
 
+function rootOf(id) {
+  let node = state.nodes.get(id);
+  while (node && !node.isRoot) node = node.parentId ? state.nodes.get(node.parentId) : null;
+  return node || state.nodes.get(state.rootId);
+}
+
 function updateStatus() {
-  const n = state.order.length;
+  const n = state.order.filter((id) => {
+    const node = state.nodes.get(id);
+    return node && !node.isRoot;
+  }).length;
   statusBranches.textContent = `${n} action${n === 1 ? "" : "s"}`;
-  if (state.rootId) {
-    const root = state.nodes.get(state.rootId);
-    statusMeta.textContent = `≈ ${Math.max(1, Math.round(root.estReadSeconds / 60))} min read`;
-  }
+  const root = rootOf(state.activeId);
+  if (root) statusMeta.textContent = `≈ ${Math.max(1, Math.round(root.estReadSeconds / 60))} min read`;
+}
+
+function resultsFor(containerId, text) {
+  const key = normalize(text);
+  const rec = state.marks.find((m) => m.containerId === containerId && m.key === key);
+  return rec ? rec.ids.filter((id) => state.nodes.has(id)) : [];
+}
+
+function renderToolbarResults(containerId, text) {
+  const ids = resultsFor(containerId, text);
+  toolbarResults.innerHTML = "";
+  toolbarResults.hidden = ids.length === 0;
+  if (!ids.length) return;
+  const label = document.createElement("p");
+  label.className = "toolbar-results-label";
+  label.textContent = ids.length === 1 ? "Opens here" : `${ids.length} results`;
+  toolbarResults.appendChild(label);
+  ids.forEach((id) => {
+    const node = state.nodes.get(id);
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "toolbar-result";
+    row.setAttribute("role", "menuitem");
+    row.dataset.kind = node.kind;
+    row.innerHTML = `
+      <span class="tr-loc" data-kind="${escapeAttr(node.kind)}" aria-hidden="true">${KIND_LOC[node.kind] || "•"}</span>
+      <span class="tr-kind">${escapeHtml(KIND_LABELS[node.kind] || node.kind)}</span>
+      <span class="tr-anchor">“${escapeHtml(node.anchor)}”</span>
+    `;
+    row.addEventListener("click", () => {
+      hideToolbar();
+      focusSection(id);
+    });
+    toolbarResults.appendChild(row);
+  });
 }
 
 function showToolbar(text, rect, containerId) {
   state.toolbarContext = { text, containerId };
   toolbarPreview.textContent = truncate(text, 60);
+  renderToolbarResults(containerId, text);
   toolbar.hidden = false;
   const tb = toolbar.getBoundingClientRect();
   let left = rect.left + rect.width / 2 - tb.width / 2;
@@ -424,6 +529,7 @@ function showToolbar(text, rect, containerId) {
 
 function hideToolbar() {
   toolbar.hidden = true;
+  toolbarResults.hidden = true;
   state.toolbarContext = null;
 }
 
@@ -500,10 +606,9 @@ function startReader(question) {
   state.activeId = null;
   state.counter = 0;
   readingSections.innerHTML = "";
-  actionList.innerHTML = "";
+  sideList.innerHTML = "";
   actionsEmpty.hidden = false;
   actionCount.textContent = "0";
-  setEnergy(0.32);
 
   const rootNode = {
     id: "root",
@@ -513,6 +618,7 @@ function startReader(question) {
     anchor: question,
     title: question,
     isRoot: true,
+    el: document.querySelector(".reading"),
     sectionsEl: readingSections,
     bodyEl: readingBody,
     estReadSeconds: estimateReadSeconds(SEED_ROOT.body),
@@ -529,7 +635,7 @@ function startReader(question) {
   });
 
   renderTrail();
-  renderActions();
+  updateActions();
   updateStatus();
   window.scrollTo({ top: 0, behavior: "auto" });
 }
@@ -566,21 +672,6 @@ function initTheme() {
   setTheme(window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
 }
 
-function initMotes() {
-  if (reduce || !motesLayer) return;
-  for (let i = 0; i < 16; i += 1) {
-    const mote = document.createElement("span");
-    mote.className = "mote";
-    mote.style.left = Math.random() * 100 + "vw";
-    mote.style.bottom = "-10px";
-    mote.style.width = mote.style.height = 2 + Math.random() * 4 + "px";
-    mote.style.animationDuration = 14 + Math.random() * 18 + "s";
-    mote.style.animationDelay = -Math.random() * 20 + "s";
-    mote.style.background = ["var(--accent)", "var(--accent-2)", "var(--accent-3)"][i % 3];
-    motesLayer.appendChild(mote);
-  }
-}
-
 homeForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const value = homeInput.value.trim();
@@ -592,8 +683,8 @@ composerForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const value = composerInput.value.trim();
   if (!value) return composerInput.focus();
-  composerInput.value = value;
-  startReader(value);
+  composerInput.value = "";
+  addQuestion(value);
   toast("New question · " + formatLens());
 });
 
@@ -655,8 +746,9 @@ document.addEventListener("click", (event) => {
     event.stopPropagation();
     const span = icon.closest(".anchor");
     const container = span.closest("[data-node-id]");
-    const rec = state.marks.find((m) => m.containerId === container.dataset.nodeId && normalize(m.anchor) === normalize(span.dataset.term));
-    if (rec && rec.ids.length) focusSection(rec.ids[rec.ids.length - 1]);
+    const ids = resultsFor(container.dataset.nodeId, span.dataset.term);
+    if (ids.length > 1) showToolbar(span.dataset.term, span.getBoundingClientRect(), container.dataset.nodeId);
+    else if (ids.length === 1) focusSection(ids[0]);
     return;
   }
   const anchor = event.target.closest(".anchor");
@@ -678,22 +770,18 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-readingSections.addEventListener("click", (event) => {
-  const nodeEl = event.target.closest(".action-section");
+function handleSectionClick(event) {
+  const nodeEl = event.target.closest(".action-section, .side-card");
   if (!nodeEl) return;
   const node = state.nodes.get(nodeEl.dataset.id);
   if (!node) return;
   if (event.target.closest(".as-toggle")) return toggleSection(node);
   if (event.target.closest(".as-remove")) return removeSection(node);
   if (event.target.closest(".as-anchor")) return focusSection(node.id);
-});
+}
 
-actionPrev.addEventListener("click", () => navigate(-1));
-actionNext.addEventListener("click", () => navigate(1));
-actionExpand.addEventListener("click", () => {
-  const expanded = $("actions").classList.toggle("expanded");
-  actionExpand.setAttribute("aria-pressed", String(expanded));
-});
+readingSections.addEventListener("click", handleSectionClick);
+sideList.addEventListener("click", handleSectionClick);
 
 themeBtn.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
 notesBtn.addEventListener("click", () => (notebook.hidden = !notebook.hidden));
@@ -713,14 +801,14 @@ $("newBtn").addEventListener("click", () => {
 initTheme();
 renderNotes();
 updateNoteCount();
-initMotes();
 
 const params = new URLSearchParams(location.search);
 if (params.has("demo")) {
   startReader(SEED_QUESTION);
-  createSection("root", "Rayleigh scattering", "dive");
+  const d1 = createSection("root", "Rayleigh scattering", "dive");
+  createSection("root", "Rayleigh scattering", "define");
   createSection("root", "nitrogen", "eli5");
-  const c = createSection("root", "Rayleigh scattering", "example");
-  createSection(c.id, "violet", "dive");
-  createSection(c.id, "wavelength", "define");
+  createSection(d1.id, "wavelength", "example");
+  const d2 = createSection(d1.id, "violet", "dive");
+  createSection(d2.id, "eyes", "dive");
 }

@@ -50,19 +50,20 @@ Core loop: **Ask → Calibrate → Read → Act → Nest → Save**.
 
 - **Calibration lens** — one-tap, skippable personalization (familiarity,
   depth, style, goal); non-PII, local, editable mid-session.
-- **Reader** — a reading *sheet*; every action renders as a **collapsible
-  inline section below the content**, titled with the selection and recursively
-  nestable.
+- **Reader** — a reading *sheet*. **Dive in** renders as a **collapsible section
+  below the content**, titled with the selection and recursively nestable.
+- **Wider angles** — **ELI5 / Examples / Define** render as collapsible **cards
+  in the side rail** (asides stay beside the text; only dives grow the sheet).
 - **Selection toolbar** — select any span → Dive in / ELI5 / Examples / Define /
-  Save as note.
-- **Your actions** — a collapsible, creation-ordered index of every action.
-- **Trail** — clickable ancestry; **Composer** — persistent bottom ask box;
-  **Notebook** — saved spans + context.
+  Save as note; an already-actioned phrase opens a **results menu** listing its
+  existing results plus the actions.
+- **Trail** — clickable ancestry; **Composer** — persistent bottom ask box that
+  **appends a new question section below**; **Notebook** — saved spans + context.
 
 Full interaction spec: **`app/INTERACTION-SPEC.md`** (see its Decision log for
 how the model evolved). Data model is a single node graph (one model powers
-reading, actions, trail, and notes). Visual direction is the reading-first theme
-**Lumen**.
+reading, actions, trail, and notes). Visual direction is a calm, near-flat dark
+reading theme.
 
 ## Current state
 
@@ -70,20 +71,22 @@ reading, actions, trail, and notes). Visual direction is the reading-first theme
 animation and echoes the query — no search, no backend, no accounts. This is
 deliberate: nail the feel of the first interaction before wiring anything up.
 
-**Immersive app (`app/`):** MVP prototype built — Lumen reading-first theme,
-calibration lens, **inline action sections** (each action renders as a
-collapsible section below the content, titled with the selection, recursively
-nestable), a **"Your actions"** index panel, subtle action marks (dotted
-underline + tiny kind glyph, no pre-highlighting), a trail breadcrumb, and a
-notebook. Content is a mock node graph for "Why is the sky blue?"
-(`?demo=1` pre-seeds a session).
+**Immersive app (`app/`):** MVP prototype built — calm reading-first theme,
+calibration lens, **dives inline below the content** (collapsible, titled with
+the selection, recursively nestable), a **"Wider angles"** side rail for
+ELI5 / Examples / Define cards, a **results menu** on already-actioned phrases,
+subtle direction markers (dotted underline + tiny `↓`/`→` arrow, no
+pre-highlighting), a trail breadcrumb, an appending composer, and a notebook.
+Content is a mock node graph for "Why is the sky blue?" (`?demo=1` pre-seeds a
+session).
 
-The visual system is **experience-first** ("Lumen — the page lights up as you
-learn"): a luminous ambient canvas that intensifies as you branch, bloom-on-
-branch, unfolding transitions, and a serif drop cap. The home screen keeps its
-centered hero input; the reading view has a **persistent bottom composer**
-aligned to the reading column. Retention/retrieval mechanics are deliberately
-deferred; see the spec's Decision log. Spec: `app/INTERACTION-SPEC.md`.
+The visual system is deliberately **quiet**: a near-flat dark canvas with a
+single accent; the earlier luminous ambient/energy effects were removed.
+Bloom-on-action, unfolding transitions and a serif drop cap remain. The home
+screen keeps its centered hero input; the reading view has a **persistent bottom
+composer** that adds a new question below the current one. Retention/retrieval
+mechanics are deliberately deferred; see the spec's Decision log. Spec:
+`app/INTERACTION-SPEC.md`.
 
 ## Constraints
 
@@ -101,8 +104,9 @@ deferred; see the spec's Decision log. Spec: `app/INTERACTION-SPEC.md`.
 
 ## Next
 
-- **App:** wire a real LLM behind `generateNode` in `app/content.js` (streaming,
-  citations, caching); then persistence and a lightweight learner profile.
+- **App:** wire a real LLM behind `generateNode` / `generateRoot` in
+  `app/content.js` (streaming, citations, caching); then persistence and a
+  lightweight learner profile.
 - **App (deferred):** retrieval/"explain it back"; learner-state modeling.
 - **Landing:** pick a direction, then route its input into the app.
 - Mobile polish pass and copy review.

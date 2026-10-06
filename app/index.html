@@ -11,13 +11,6 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="ambient" aria-hidden="true">
-    <span class="ambient-1"></span>
-    <span class="ambient-2"></span>
-    <span class="ambient-3"></span>
-  </div>
-  <div class="motes" id="motes" aria-hidden="true"></div>
-
   <div class="app" id="app">
     <header class="topbar">
       <a class="brand" href="../index.html" aria-label="Qriously home">
@@ -69,25 +62,20 @@
         <article class="reading">
           <p class="reading-kicker" id="readingKicker">Answer</p>
           <h2 class="reading-title" id="readingTitle"></h2>
-          <div class="reading-body selectable" id="readingBody" data-node-id="root"></div>
           <div class="reading-foot">
             <span id="readingMeta"></span>
           </div>
+          <div class="reading-body selectable" id="readingBody" data-node-id="root"></div>
           <div class="reading-sections" id="readingSections"></div>
         </article>
 
-        <aside class="actions" id="actions" aria-label="Your actions">
+        <aside class="actions" id="actions" aria-label="Wider angles">
           <div class="actions-head">
-            <span class="actions-title">Your actions</span>
+            <span class="actions-title">Wider angles</span>
             <span class="actions-count" id="actionCount">0</span>
-            <div class="actions-nav">
-              <button type="button" id="actionPrev" aria-label="Previous action">↑</button>
-              <button type="button" id="actionNext" aria-label="Next action">↓</button>
-              <button type="button" id="actionExpand" aria-label="Expand action list">⤢</button>
-            </div>
           </div>
-          <ul class="action-list" id="actionList"></ul>
-          <p class="actions-empty" id="actionsEmpty">Select any phrase and choose an action — it opens right here, below the text.</p>
+          <ul class="side-list" id="sideList"></ul>
+          <p class="actions-empty" id="actionsEmpty">ELI5s, examples and definitions open here. Dives stack below the text.</p>
         </aside>
       </div>
     </section>
@@ -116,6 +104,7 @@
 
   <div class="toolbar" id="toolbar" role="menu" aria-label="Actions for selected text" hidden>
     <div class="toolbar-preview" id="toolbarPreview"></div>
+    <div class="toolbar-results" id="toolbarResults" hidden></div>
     <div class="toolbar-actions">
       <button type="button" data-act="dive" role="menuitem">Dive in</button>
       <button type="button" data-act="eli5" role="menuitem">ELI5</button>

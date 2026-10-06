@@ -245,6 +245,31 @@ function synthesize(anchor, kind, lens) {
   };
 }
 
+function styleSuffix(lens) {
+  if (lens && lens.style === "analogy") return " Think of it by analogy: it behaves like the moving part in a machine — nudge it and everything nearby responds.";
+  if (lens && lens.style === "technical") return " Formally: trace the cause, follow the effect, and the mechanism falls out of the relationships around it.";
+  return "";
+}
+
+function generateRoot(question, lens) {
+  const q = String(question).trim();
+  if (normalizeKey(q) === normalizeKey(SEED_QUESTION)) {
+    return {
+      title: q,
+      body: SEED_ROOT.body,
+      citations: 3,
+      estReadSeconds: estimateReadSeconds(SEED_ROOT.body),
+    };
+  }
+  const body = `You asked: **${q}**. The short version is that it rests on a few moving parts. Pull on any phrase below and we will follow it down — the picture fills in as the pieces connect.${styleSuffix(lens)}`;
+  return {
+    title: q,
+    body,
+    citations: 2,
+    estReadSeconds: estimateReadSeconds(body),
+  };
+}
+
 function estimateReadSeconds(text) {
   const words = String(text).trim().split(/\s+/).filter(Boolean).length;
   return Math.max(20, Math.round((words / 200) * 60));
@@ -274,4 +299,5 @@ window.SEED_QUESTION = SEED_QUESTION;
 window.SEED_ROOT = SEED_ROOT;
 window.KIND_LABELS = KIND_LABELS;
 window.generateNode = generateNode;
+window.generateRoot = generateRoot;
 window.estimateReadSeconds = estimateReadSeconds;

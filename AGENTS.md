@@ -21,7 +21,7 @@ qriously/
 └── app/                # the immersive learning app
     ├── INTERACTION-SPEC.md  # interaction + decisions (READ FIRST)
     ├── index.html
-    ├── styles.css           # "Lumen" theme + component styles
+    ├── styles.css           # theme tokens + component styles
     ├── content.js           # mock node graph + generator (the fake "AI")
     └── script.js            # app engine (state, rendering, interaction)
 ```
@@ -33,48 +33,58 @@ product surface. Read `app/INTERACTION-SPEC.md` before changing the app.
 
 - Landing chooser: open the root `index.html`.
 - App: open `app/index.html`, or `app/index.html?demo=1` for a pre-seeded
-  session (5 actions), handy for screenshots/manual testing.
+  session (questions, dives and asides), handy for screenshots/manual testing.
 - Serve anything: `python3 -m http.server 8000` (app at `/app/`).
 
-## The app (current model — v5)
+## The app (current model — v8)
 
 Read `app/INTERACTION-SPEC.md` for the full spec and the decision log (the model
-changed several times: margin rail → list+window → **inline action sections**).
-The short version:
+changed several times: margin rail → list+window → inline action sections →
+**dives inline, asides on the side**). The short version:
 
 - **Home:** centered hero input. Submit → **Calibration lens** (familiarity,
   depth, style, goal; skippable; non-PII) → **Reader**.
 - **Reader:** a reading *sheet* with the answer, plus:
-  - **Inline action sections** — every action (Dive in / ELI5 / Examples /
-    Define) renders as a **collapsible section below the content**, titled with
-    the selected phrase, labelled by kind, and **recursively nestable** (select
-    text inside a section to go deeper). Collapse via the chevron; remove via ✕.
-  - **Your actions** (right panel) — a collapsible, creation-ordered index;
-    `↑`/`↓` step and scroll; `⤢` expands; the active row is highlighted.
-  - **Trail** — breadcrumb of the active path.
-  - **Composer** — a persistent bottom "ask" box (reader-only) aligned to the
-    reading sheet; submitting starts a new question using the current lens.
+  - **Dive sections** — only **Dive in** renders as a collapsible section
+    **below the content**, titled with the selected phrase; dives nest
+    recursively. Collapse via the toggle; remove via ✕. No `L#` depth labels.
+  - **Wider angles** (right rail) — **ELI5 / Examples / Define** render as
+    collapsible **cards** on the side. Selecting inside any card and choosing a
+    kind routes by kind: dives go below, asides stay in the rail.
+  - **Trail** — breadcrumb of the active path; the leading crumb is the base
+    question.
+  - **Composer** — a persistent bottom "ask" box (reader-only); submitting
+    **appends a new question section below** (does not replace the session),
+    using the current lens.
   - **Notebook** — saved spans + context (top bar).
 - **Anchors:** nothing is highlighted until acted on. Actioned spans get a
-  *subtle* dotted underline + tiny muted kind glyph. Clicking the text opens the
-  action toolbar; clicking the glyph scrolls to that action's section.
-- **Look:** "Lumen" — luminous dark canvas that brightens as you act
-  (`--energy`), bloom-on-action, unfolding transitions, serif drop cap, motes.
+  *subtle* dotted underline + a tiny direction marker (`↓` below, `→` side,
+  `★` note; both shown when a phrase has both). Clicking the text opens a
+  **results menu** — existing results (click to jump + expand) plus the action
+  buttons; clicking the marker jumps when there is one result, opens the menu
+  when there are several.
+- **Look:** calm near-flat dark canvas. A single accent; no ambient blobs, motes
+  or gradient/glow effects (the earlier "Lumen" energy model was removed).
+  Bloom-on-action, unfolding transitions and the serif drop cap remain.
 
 ### Files & where things live
 
 - `script.js` holds all behavior and state: `state = { lens, nodes, order,
-  activeId, marks, notes }`. Key functions: `startReader`, `createSection`,
-  `toggleSection`, `removeSection`, `renderActions`, `renderTrail`,
-  `showToolbar`/`performAction`, `registerMark`/`applyMarks`, `focusSection`.
+  activeId, marks, notes }`. Key functions: `startReader`, `addQuestion`,
+  `createSection` (routes dives via `diveHost`, asides to `#sideList`),
+  `toggleSection`, `removeSection`/`descendantIds`, `renderSide`,
+  `renderTrail`/`rootOf`, `showToolbar`/`renderToolbarResults`/`performAction`,
+  `registerMark`/`applyMarks`, `focusSection`.
 - `content.js` is the mock "AI": `SEED_ROOT` (the "Why is the sky blue?" body),
   `LIBRARY` (curated nodes keyed by phrase), `generateNode(parent, anchor, kind,
-  lens)` with a `synthesize()` fallback so *any* selection produces a plausible
-  section. **To wire a real LLM, replace `generateNode` behind the same
-  interface** (title, body, citations, estReadSeconds).
+  lens)` and `generateRoot(question, lens)`, both with a `synthesize()` fallback
+  so *any* selection/question produces plausible text. **To wire a real LLM,
+  replace these behind the same interfaces** (title, body, citations,
+  estReadSeconds).
 - `styles.css` uses CSS custom properties in `:root` + `html[data-theme=...]`.
-  Kind colors are `--k-dive/-eli5/-example/-define/-note`. The energy variable
-  is `--energy` (set by `setEnergy`).
+  Kind colors are `--k-dive/-eli5/-example/-define/-note`. Side cards
+  (`.side-card`), question sections (`.question-section`) and the results menu
+  (`.toolbar-results`) are the newer component styles.
 - Bodies use `**phrase**` markers to seed curated anchors; rendered to
   `.anchor` spans. Nothing is pre-highlighted.
 
@@ -82,20 +92,21 @@ The short version:
 
 - Content is mock; no LLM, persistence, or accounts. `estReadSeconds` is fake.
 - Landing and app are not yet connected (landing submit is visual-only).
-- Mobile: the actions panel stacks below the reading sheet; the composer stays
+- Mobile: the actions rail stacks below the reading sheet; the composer stays
   docked. Not yet a native bottom-sheet.
 - Deliberately deferred (see spec Decision log): retrieval/consolidation
   ("explain it back"), learner-state modeling, the spark map (cut).
-- The inline-section model has a known reflow/depth risk; mitigations are
-  collapse + capped indent + the actions index. The single-window model is the
-  logged fallback.
+- Questions accumulate down the sheet; there is no per-question collapse-all or
+  reordering yet. The inline-dive model still carries a reflow/depth risk;
+  mitigations are collapse + capped indent + the trail. The single-window model
+  remains the logged fallback.
 
 ## Conventions
 
 - Plain HTML/CSS/JS. No build step, no npm, no framework. Google Fonts with
   system fallbacks; pages must work offline-ish.
 - Design tokens live as CSS custom properties; no scattered literals.
-- Respect `prefers-reduced-motion` for every animation (app hides motes too).
+- Respect `prefers-reduced-motion` for every animation.
 - Accessibility: real `<button>`/`<input>`, visible focus rings, keyboard
   routes (Enter/Space on anchors; Escape closes toolbar/notebook).
 - No comments in code unless they earn their place.
