@@ -2,6 +2,13 @@ DEFAULT_MODEL = "deepseek-flash"
 
 PROMPT_VERSION = "v1"
 
+MODEL_PRICE = {
+    "deepseek-flash": {
+        "input_per_1k_micros": 140,
+        "output_per_1k_micros": 280,
+    },
+}
+
 SIGNUP_GRANT = 5000
 
 CACHE_HIT_RATIO = 0.25

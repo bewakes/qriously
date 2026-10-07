@@ -64,6 +64,13 @@ class CreditEntry(UUIDModel):
     idempotency_key = models.CharField(
         max_length=255, null=True, blank=True, unique=True
     )
+    request = models.ForeignKey(
+        "telemetry.RequestLog",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="credit_entries",
+    )
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

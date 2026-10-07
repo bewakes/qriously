@@ -28,7 +28,7 @@ def _existing(idempotency_key):
 
 
 @transaction.atomic
-def grant(wallet, amount, reason, idempotency_key=None, metadata=None):
+def grant(wallet, amount, reason, idempotency_key=None, metadata=None, request=None):
     if amount <= 0:
         raise ValueError("grant amount must be positive")
     wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
@@ -44,12 +44,13 @@ def grant(wallet, amount, reason, idempotency_key=None, metadata=None):
         entry_type=EntryType.GRANT,
         reason=reason,
         idempotency_key=idempotency_key,
+        request=request,
         metadata=metadata or {},
     )
 
 
 @transaction.atomic
-def spend(wallet, amount, reason, idempotency_key=None, metadata=None):
+def spend(wallet, amount, reason, idempotency_key=None, metadata=None, request=None):
     if amount < 0:
         raise ValueError("spend amount must not be negative")
     wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
@@ -67,6 +68,7 @@ def spend(wallet, amount, reason, idempotency_key=None, metadata=None):
         entry_type=EntryType.DEBIT,
         reason=reason,
         idempotency_key=idempotency_key,
+        request=request,
         metadata=metadata or {},
     )
 
@@ -78,6 +80,7 @@ def refund(
     reason=Reason.FAILED_GENERATION,
     idempotency_key=None,
     metadata=None,
+    request=None,
 ):
     if amount <= 0:
         raise ValueError("refund amount must be positive")
@@ -94,5 +97,6 @@ def refund(
         entry_type=EntryType.REFUND,
         reason=reason,
         idempotency_key=idempotency_key,
+        request=request,
         metadata=metadata or {},
     )

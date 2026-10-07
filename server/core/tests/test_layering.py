@@ -6,6 +6,7 @@ SERVER_DIR = Path(__file__).resolve().parents[2]
 PURE_FILES = [
     "accounts/policies.py",
     "credits/policies.py",
+    "telemetry/policies.py",
     "core/constants.py",
 ]
 PURE_DIRS = ["lenses", "safety"]

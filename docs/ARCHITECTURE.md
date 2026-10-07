@@ -136,7 +136,7 @@ server/
 │   └── api.py · urls.py · admin.py · migrations/
 ├── lenses/values.py   # Lens value object + bucket encoding (pure)
 ├── safety/            # Decision + ScreeningPolicy + AllowAllPolicy (pure)
-├── telemetry/         # RequestLog, ModelPrice
+├── telemetry/         # RequestLog
 ├── generation/        # DeepSeek client, prompts, SSE orchestration
 └── content/ learning/ # content layer + thread layer
 ```
@@ -171,7 +171,7 @@ threshold should be duplicated in the flow code.
 | Constant | Purpose | Initial value (tune freely) |
 |---|---|---|
 | `DEFAULT_MODEL` | DeepSeek model id | `deepseek-flash` |
-| `MODEL_PRICE` | vendor cost per model (in/out per 1k tokens), versioned | seeded in `ModelPrice` |
+| `MODEL_PRICE` | vendor cost per model (in/out per 1k micros) | `deepseek-flash`: 140 / 280 (constant; a versioned table arrives with billing) |
 | `BASE_COST[kind]` | credit price per action kind | dive 12 · ask 10 · eli5 6 · example 6 · define 5 · root 15 |
 | `DEPTH_MULTIPLIER` | lens depth scaling | quick 0.7 · solid 1.0 · deep 1.6 |
 | `CACHE_HIT_RATIO` | fraction of price charged on reuse | `0.25` (never free) |
@@ -199,8 +199,9 @@ without touching callers.
   than hard-block.
 - **Response:** `422 content_blocked` with a generic, non-leaky message and a
   `category`; never echo harmful text back.
-- **Audit:** the decision and category are stored on the `RequestLog` so policy
-  changes are measurable; the decision carries no PII.
+- **Audit:** the decision is returned to the pipeline; the `RequestLog` gains its
+  `screening_*` fields when this integration lands (the MVP `RequestLog` is kept
+  to the fields the pipeline writes today). The decision carries no PII.
 
 Screening is deliberately **not** part of the content-cache key: a cache hit
 still passes screening, because it is the *query* (not the cached text) that may
@@ -214,10 +215,11 @@ one auditable context. This is what later answers "which kinds of queries cost
 the most?" without re-plumbing.
 
 1. **Open request**: authenticate device/user; create a `RequestLog` capturing
-   endpoint, kind, thread/node, lens, and a *hashed* client fingerprint (no PII).
-   Resolve the `Wallet`.
+   endpoint, kind, lens bucket and the idempotency key. Resolve the `Wallet`.
+   (More context — thread/node, client fingerprint — is added when those exist.)
 2. **Screen**: `safety.screening.check(...)`. Blocked → `422`, request closed
-   `blocked`, **nothing charged**.
+   `failed` with `error_code=content_blocked`, **nothing charged**. (The
+   `screening_*` fields land on `RequestLog` here.)
 3. **Resolve concept** from the span/question (`normalize` → `Concept` upsert);
    build `context_fingerprint` from the parent concept.
 4. **Lookup** variant (`content.reuse.find_variant`, exact → broadened).
@@ -225,13 +227,13 @@ the most?" without re-plumbing.
    hit is charged a configurable fraction** of the generated price — never free,
    so reuse keeps producing revenue while unit cost stays far below a fresh call.
    Atomically check-and-hold (`select_for_update`); insufficient balance → `402`,
-   request closed `denied`, nothing generated.
+   request closed `failed` with `error_code=insufficient_credits`.
 6. **Hit**: skip generation; emit `meta(cache_hit=true, cost)`; replay the body
    as a single `token`; go to 8.
 7. **Miss**: stream from DeepSeek, relay tokens over SSE; on completion persist a
    `ContentVariant` (idempotent on the request key), record `tokens_in/out`, and
-   compute the **vendor cost** from the versioned `ModelPrice` table (stored
-   separately from the credits charged), then index it.
+   compute the **vendor cost** from the configured price (`core/constants.MODEL_PRICE`;
+   a versioned table arrives with billing), stored separately from credits charged.
 8. **Persist node**: create the `Node` linked to the variant (hit or miss),
    snapshot lens, `status=done`.
 9. **Settle**: convert the hold to a `debit`, write `UsageEvent` + `CreditEntry`
@@ -312,12 +314,12 @@ Principles:
   "3 sources · verified" line).
 - **Privacy:** lens is behavioral, not identity; never join lens to PII.
 - **Request context & metering:** every metered call is a `RequestLog`;
-  `UsageEvent`, `CreditEntry`, screening decision, tokens, latency and cache
-  layer all reference it, so "what kinds of queries cost the most?" is a query,
-  not a new pipeline.
-- **Vendor cost vs credits:** token usage is converted to vendor cost through a
-  versioned `ModelPrice` table and stored per request, **separately** from the
-  credits charged. This is how LLM cost-per-request is tracked without coupling
+  `CreditEntry` references it today, and `UsageEvent`, the screening decision and
+  the cache layer will too — so "what kinds of queries cost the most?" becomes a
+  query, not a new pipeline.
+- **Vendor cost vs credits:** token usage is converted to vendor cost through the
+  configured model price and stored per request, **separately** from the credits
+  charged. This is how LLM cost-per-request is tracked without coupling
   it to the price users pay.
 - **Observability:** per-generation `UsageEvent` + `RequestLog` yield the spec
   §17 metrics (tokens/branch, cache hit rate, cost/latency, and now cost by kind
@@ -352,7 +354,7 @@ no UI); collaboration/sharing; spaced repetition; the spark map.
 | Harmful/illegal queries | Screening interface is in the pipeline from day one (allow-all MVP); policies are swappable and run before any spend. |
 | Charging for reuse feels unfair, discourages reuse | Hit price is a small configurable fraction (`CACHE_HIT_RATIO`), shown transparently; still a large discount vs a fresh call and far below vendor cost. |
 | Unbounded/abusive usage burns credits or vendor spend | Per-wallet rate limiting beside the credit gate; `RequestLog` makes spend by query type visible. |
-| Vendor costs invisible until too late | Versioned `ModelPrice` + per-request `vendor_cost_micros` from day one, separate from credits charged. |
+| Vendor costs invisible until too late | Configured model price + per-request `vendor_cost_micros` from day one, separate from credits charged. |
 
 ## 13. Decision log
 
@@ -378,10 +380,11 @@ no UI); collaboration/sharing; spaced repetition; the spark map.
   and `422 content_blocked` path exist so a real policy drops in without
   touching callers. The cache key excludes screening (queries, not cached text,
   are screened).
-- **A8:** Every metered call opens a **`RequestLog`**; `UsageEvent`,
-  `CreditEntry`, screening and vendor cost reference it. Credits (revenue) and
-  **vendor cost** (DeepSeek spend, via a versioned `ModelPrice` table) are
-  tracked separately per request. Credit-cost analytics is deferred, but the
+- **A8:** Every metered call opens a **`RequestLog`**; `CreditEntry` references
+  it today (and `UsageEvent`/screening will). Credits (revenue) and **vendor
+  cost** (DeepSeek spend, via the configured `MODEL_PRICE`; a versioned table
+  arrives with billing) are tracked separately per request. Cost analytics is
+  deferred, but the
   data model supports it from day one.
 - **A9:** **Cache hits are charged** a configurable fraction of the generated
   price (`CACHE_HIT_RATIO`, default 0.25) — never free — so reuse produces
