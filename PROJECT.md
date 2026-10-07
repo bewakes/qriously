@@ -65,6 +65,27 @@ how the model evolved). Data model is a single node graph (one model powers
 reading, actions, trail, and notes). Visual direction is a calm, near-flat dark
 reading theme.
 
+### End-to-end build (planned)
+
+The next step is to make the prototype run end to end: a Django/DRF backend on
+Postgres + pgvector, DeepSeek (`deepseek-flash`) for generation, authoritative
+metered credits, and **lens-indexed content reuse** (generated content is tagged
+with the lens it suits and reused for similar questions/spans under similar
+lenses). The core model is **two layers sharing vertices**: a shared, immutable
+`Concept`/`ContentVariant` content layer and a per-user `Thread`/`Span`/`Node`
+graph that references it, making reuse a link (a DAG) rather than a copy.
+
+Designed in from day one, even where the MVP keeps them simple: a **screening
+layer** for harmful/illegal queries (allow-all policy for now, but the hook and
+`422` path exist); **reused content is still charged a configurable fraction**
+(never free); and every metered call is a **`RequestLog`** tying credits,
+tokens, screening and **vendor LLM cost** to one request so cost-by-query-type
+analytics are possible later.
+
+Architecture, schema, API, and phased plan live in `docs/`
+(`ARCHITECTURE.md`, `DATA-MODEL.md`, `API.md`, `PLAN.md`). These are proposed and
+await approval before implementation.
+
 ## Current state
 
 **Landing designs:** static prototypes. Submitting a question runs a visual-only
@@ -104,9 +125,13 @@ mechanics are deliberately deferred; see the spec's Decision log. Spec:
 
 ## Next
 
-- **App:** wire a real LLM behind `generateNode` / `generateRoot` in
-  `app/content.js` (streaming, citations, caching); then persistence and a
-  lightweight learner profile.
-- **App (deferred):** retrieval/"explain it back"; learner-state modeling.
+- **App (end-to-end):** implement the backend + wiring in `docs/PLAN.md` — Django
+  foundation, lens-indexed content reuse, DeepSeek streaming, metered credits,
+  then frontend component extraction and API/SSE wiring. Architecture and
+  contracts: `docs/ARCHITECTURE.md`, `docs/DATA-MODEL.md`, `docs/API.md`.
+- **App (deferred):** semantic embedding reuse; Stripe payments/subscriptions;
+  retrieval-grounded citations; prefetch; retrieval/"explain it back";
+  learner-state modeling.
 - **Landing:** pick a direction, then route its input into the app.
 - Mobile polish pass and copy review.
+
