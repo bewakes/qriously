@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "accounts",
     "credits",
     "telemetry",
+    "content",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

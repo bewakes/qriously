@@ -28,3 +28,12 @@ pytest
 
 - `GET /health` — liveness
 - `GET /health/ready` — readiness (checks the database)
+
+## Content seeding
+
+```bash
+python manage.py seed_content
+```
+
+Seeds a few reusable `Concept`/`ContentVariant` rows so exact/broadened cache
+hits are demonstrable before DeepSeek is wired in. Idempotent.
