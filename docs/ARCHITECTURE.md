@@ -114,28 +114,53 @@ Python dependencies (indicative): `django`, `djangorestframework`,
 `django-cors-headers`, `psycopg[binary]`, `pgvector`, `httpx`, `dj-database-url`,
 `python-dotenv`; dev: `pytest`, `pytest-django`, `ruff`.
 
-## 5. Backend layout
+## 5. Backend layout & layering
+
+Boundaries are by **responsibility, not framework**. Each context is a Django app
+that owns its single entity (the Django model) plus a framework-free
+`policies.py` and an orchestrating `services.py`. Cross-cutting pure code (lens,
+safety, constants) lives in framework-free packages.
 
 ```
 server/
 ├── manage.py
-├── config/            # settings, urls, asgi, celery-later
-├── core/              # base models, ids, health, pagination, errors, constants
-├── accounts/          # User, DeviceSession, anonymous-first auth, upgrade
-├── credits/           # Wallet, CreditEntry ledger, pricing, metering service
-├── content/           # Concept, ContentVariant, ConceptLink, lens encode, reuse
-├── learning/          # Thread, Span, Node, Note, graph snapshot/serializers
-├── safety/            # query screening interface + policies (allow-all MVP)
-├── generation/        # DeepSeek client, prompt templates, orchestration, SSE
-├── telemetry/         # RequestLog, model price table, usage analytics
-└── api/               # v1 URL wiring (thin; serializers live per app)
+├── config/            # Django project: settings, urls, asgi, wsgi
+├── core/
+│   ├── constants.py   # pure tunables (no Django)
+│   └── models.py      # shared abstract mixins (UUID, timestamps)
+├── accounts/          # User, DeviceSession  ← the only entities
+│   ├── models.py · policies.py · services.py · authentication.py
+│   └── api.py · urls.py · admin.py · migrations/
+├── credits/           # Wallet, CreditEntry  ← the only entities
+│   ├── models.py · policies.py · services.py
+│   └── api.py · urls.py · admin.py · migrations/
+├── lenses/values.py   # Lens value object + bucket encoding (pure)
+├── safety/            # Decision + ScreeningPolicy + AllowAllPolicy (pure)
+├── telemetry/         # RequestLog, ModelPrice
+├── generation/        # DeepSeek client, prompts, SSE orchestration
+└── content/ learning/ # content layer + thread layer
 ```
 
-Rules: every write that touches credits or content runs in a single DB
-transaction; money/credits are **integers** (micro-credits), never floats;
-all generation requests carry an **idempotency key**; screening runs **before**
-any spend; every metered call is a `RequestLog`; no vendor SDK is called
-outside `generation/`.
+**Layering rules**
+
+1. **One entity per concept.** The Django model *is* the entity — no parallel
+   dataclasses, no mappers. A model may carry trivial in-memory behavior
+   (`Wallet.debit`, `DeviceSession.revoke`) but a behavior method never issues
+   queries.
+2. **Pure core is framework-free.** `policies.py`, `lenses/`, `safety/`, and
+   `core/constants.py` must not import Django. All decisions (pricing, ledger
+   arithmetic, lens encoding, screening) live here and are unit-testable with no
+   database.
+3. **Services orchestrate and may use the ORM.** `services.py` runs use cases,
+   owns `transaction.atomic`, and delegates every decision to policies. ORM
+   imports stay out of `policies.py`, `lenses/`, and `safety/`.
+4. **API modules are thin.** Serializers/views translate HTTP ↔ services; no
+   business rules.
+
+Other invariants: every write touching credits or content runs in one
+transaction; money/credits are integers (micro-credits), never floats; every
+generation request carries an idempotency key; screening runs **before** any
+spend; every metered call is a `RequestLog`; no vendor SDK outside `generation/`.
 
 ### Configuration & constants (single source)
 
@@ -367,3 +392,8 @@ no UI); collaboration/sharing; spaced repetition; the spark map.
   flow.
 - **A11:** Default generation model is **`deepseek-flash`** (configurable); the
   vendor client stays behind `generation.llm`.
+- **A12:** Layering is by **responsibility**: one Django-model entity per concept
+  (no parallel dataclasses/mappers), pure framework-free `policies.py` +
+  `lenses/` + `safety/` for all decisions, `services.py` for use cases (the only
+  place that uses the ORM besides models), and thin `api.py` for HTTP. The ORM
+  never leaks into the pure modules.
