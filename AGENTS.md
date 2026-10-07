@@ -47,7 +47,8 @@ changed several times: margin rail → list+window → inline action sections �
 - **Reader:** a reading *sheet* with the answer, plus:
   - **Dive sections** — only **Dive in** renders as a collapsible section
     **below the content**, titled with the selected phrase; dives nest
-    recursively. Collapse via the toggle; remove via ✕. No `L#` depth labels.
+    recursively. Collapse via the toggle **or the title**; `↩` jumps to the
+    source phrase; remove via ✕. No `L#` depth labels.
   - **Wider angles** (right rail) — **ELI5 / Examples / Define** render as
     collapsible **cards** on the side. Selecting inside any card and choosing a
     kind routes by kind: dives go below, asides stay in the rail.
@@ -62,7 +63,9 @@ changed several times: margin rail → list+window → inline action sections �
   `★` note; both shown when a phrase has both). Clicking the text opens a
   **results menu** — existing results (click to jump + expand) plus the action
   buttons; clicking the marker jumps when there is one result, opens the menu
-  when there are several.
+  when there are several. The toolbar also has a small free-text **Ask** field
+  that turns a question about the span into one inline `ask` section
+  (single-shot; no chat/thread state).
 - **Look:** calm near-flat dark canvas. A single accent; no ambient blobs, motes
   or gradient/glow effects (the earlier "Lumen" energy model was removed).
   Bloom-on-action, unfolding transitions and the serif drop cap remain.
@@ -77,10 +80,10 @@ changed several times: margin rail → list+window → inline action sections �
   `registerMark`/`applyMarks`, `focusSection`.
 - `content.js` is the mock "AI": `SEED_ROOT` (the "Why is the sky blue?" body),
   `LIBRARY` (curated nodes keyed by phrase), `generateNode(parent, anchor, kind,
-  lens)` and `generateRoot(question, lens)`, both with a `synthesize()` fallback
-  so *any* selection/question produces plausible text. **To wire a real LLM,
-  replace these behind the same interfaces** (title, body, citations,
-  estReadSeconds).
+  lens)`, `generateRoot(question, lens)` and `generateAsk(parent, anchor,
+  question, lens)`, all with a `synthesize()` fallback so *any*
+  selection/question produces plausible text. **To wire a real LLM, replace
+  these behind the same interfaces** (title, body, citations, estReadSeconds).
 - `styles.css` uses CSS custom properties in `:root` + `html[data-theme=...]`.
   Kind colors are `--k-dive/-eli5/-example/-define/-note`. Side cards
   (`.side-card`), question sections (`.question-section`) and the results menu

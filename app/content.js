@@ -196,6 +196,7 @@ const KIND_LABELS = {
   eli5: "ELI5",
   example: "Examples",
   define: "Define",
+  ask: "Ask",
   note: "Note",
 };
 
@@ -270,6 +271,18 @@ function generateRoot(question, lens) {
   };
 }
 
+function generateAsk(parent, anchor, question, lens) {
+  const a = String(anchor).trim();
+  const q = String(question).trim();
+  const body = `You asked about **${a}**: ${q} The short answer is that the phrase matters because of what it changes around it — trace what causes it, what it causes in turn, and the question usually answers itself. Follow any part of that and the rest fills in.${styleSuffix(lens)}`;
+  return {
+    title: q,
+    body,
+    citations: 1,
+    estReadSeconds: estimateReadSeconds(body),
+  };
+}
+
 function estimateReadSeconds(text) {
   const words = String(text).trim().split(/\s+/).filter(Boolean).length;
   return Math.max(20, Math.round((words / 200) * 60));
@@ -300,4 +313,5 @@ window.SEED_ROOT = SEED_ROOT;
 window.KIND_LABELS = KIND_LABELS;
 window.generateNode = generateNode;
 window.generateRoot = generateRoot;
+window.generateAsk = generateAsk;
 window.estimateReadSeconds = estimateReadSeconds;

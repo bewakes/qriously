@@ -55,8 +55,8 @@ Core loop: **Ask → Calibrate → Read → Act → Nest → Save**.
 - **Wider angles** — **ELI5 / Examples / Define** render as collapsible **cards
   in the side rail** (asides stay beside the text; only dives grow the sheet).
 - **Selection toolbar** — select any span → Dive in / ELI5 / Examples / Define /
-  Save as note; an already-actioned phrase opens a **results menu** listing its
-  existing results plus the actions.
+  Save as note, or type a free-text **Ask**. An already-actioned phrase opens a
+  **results menu** listing its existing results plus the actions.
 - **Trail** — clickable ancestry; **Composer** — persistent bottom ask box that
   **appends a new question section below**; **Notebook** — saved spans + context.
 

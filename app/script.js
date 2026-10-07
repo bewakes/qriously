@@ -23,6 +23,8 @@ const statusBranches = $("statusBranches");
 const toolbar = $("toolbar");
 const toolbarPreview = $("toolbarPreview");
 const toolbarResults = $("toolbarResults");
+const toolbarAskForm = $("toolbarAskForm");
+const toolbarAskInput = $("toolbarAskInput");
 const lensOverlay = $("lensOverlay");
 const lensQuestion = $("lensQuestion");
 const lensChip = $("lensChip");
@@ -37,8 +39,9 @@ const noteList = $("noteList");
 const notesExport = $("notesExport");
 const toastEl = $("toast");
 
-const KIND_LOC = { dive: "↓", eli5: "→", example: "→", define: "→", note: "★" };
-const KIND_ORDER = ["dive", "eli5", "example", "define", "note"];
+const KIND_LOC = { dive: "↓", ask: "↓", eli5: "→", example: "→", define: "→", note: "★" };
+const KIND_ORDER = ["dive", "ask", "eli5", "example", "define", "note"];
+const SIDE_KINDS = new Set(["eli5", "example", "define"]);
 
 const state = {
   lens: { familiarity: "basics", depth: "solid", style: "plain", goal: "curious" },
@@ -67,6 +70,10 @@ function normalize(text) {
 
 function truncate(text, n) {
   return text.length > n ? text.slice(0, n - 1).trim() + "…" : text;
+}
+
+function nodeLabel(node) {
+  return node.kind === "ask" ? node.title : node.anchor;
 }
 
 function renderBody(raw) {
@@ -148,14 +155,14 @@ function anchorRect(containerId, anchor) {
   return span ? span.getBoundingClientRect() : null;
 }
 
-function createSection(containerId, anchor, kind) {
+function createSection(containerId, anchor, kind, seed) {
   const parent = state.nodes.get(containerId);
   if (!parent) return null;
   const clean = anchor.replace(/\s+/g, " ").trim();
   if (!clean) return null;
 
   const depth = parent.depth + 1;
-  const data = generateNode(parent, clean, kind, state.lens);
+  const data = seed || generateNode(parent, clean, kind, state.lens);
   const id = "a" + ++state.counter;
   const node = {
     id,
@@ -171,16 +178,18 @@ function createSection(containerId, anchor, kind) {
   };
   state.nodes.set(id, node);
 
-  const isDive = kind === "dive";
-  const el = document.createElement(isDive ? "section" : "li");
-  el.className = isDive ? "action-section kind-dive" : `side-card kind-${kind}`;
+  const isInline = kind === "dive" || kind === "ask";
+  const el = document.createElement(isInline ? "section" : "li");
+  el.className = isInline ? `action-section kind-${kind}` : `side-card kind-${kind}`;
   el.dataset.id = id;
   el.dataset.depth = String(depth);
+  const heading = kind === "ask" ? escapeHtml(data.title) : `“${escapeHtml(clean)}”`;
   el.innerHTML = `
     <header class="as-head">
       <button type="button" class="as-toggle" aria-expanded="true" aria-label="Collapse">▼</button>
       <span class="as-kind">${escapeHtml(KIND_LABELS[kind] || kind)}</span>
-      <button type="button" class="as-anchor">“${escapeHtml(clean)}”</button>
+      <button type="button" class="as-anchor" title="Collapse or expand">${heading}</button>
+      <button type="button" class="as-source" aria-label="Show where this appears in the text" title="Show in text">↩</button>
       <button type="button" class="as-remove" aria-label="Remove section">✕</button>
     </header>
     <div class="as-body selectable"></div>
@@ -190,7 +199,7 @@ function createSection(containerId, anchor, kind) {
   node.bodyEl = el.querySelector(".as-body");
   node.bodyEl.dataset.nodeId = id;
 
-  if (isDive) {
+  if (isInline) {
     node.sectionsEl = el.querySelector(".as-sections");
     diveHost(parent).appendChild(el);
   } else {
@@ -207,6 +216,15 @@ function createSection(containerId, anchor, kind) {
   updateStatus();
   requestAnimationFrame(() => el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" }));
   return node;
+}
+
+function createAsk(containerId, anchor, question) {
+  const parent = state.nodes.get(containerId);
+  if (!parent) return null;
+  const clean = question.replace(/\s+/g, " ").trim();
+  if (!clean) return null;
+  const seed = generateAsk(parent, anchor, clean, state.lens);
+  return createSection(containerId, anchor, "ask", seed);
 }
 
 function addQuestion(question) {
@@ -326,13 +344,23 @@ function decorateAnchor(span, rec) {
   icon.textContent = Array.from(new Set(ordered.map((k) => KIND_LOC[k]))).join("") || "•";
   icon.dataset.kind = last;
   const where = [
-    ordered.includes("dive") ? "below" : null,
+    ordered.some((k) => KIND_LOC[k] === "↓") ? "below" : null,
     ordered.some((k) => KIND_LOC[k] === "→") ? "on the side" : null,
     ordered.includes("note") ? "in your notebook" : null,
   ].filter(Boolean).join(" and ");
   const summary = `${rec.count} action${rec.count > 1 ? "s" : ""} — ${kinds.join(", ")}`;
   icon.setAttribute("aria-label", `${summary}${where ? ` (opens ${where})` : ""}`);
   icon.title = `${summary}${where ? ` · opens ${where}` : ""}`;
+}
+
+function clearHighlight() {
+  document.querySelectorAll(".anchor.active").forEach((a) => a.classList.remove("active"));
+  document.querySelectorAll(".action-section.active, .side-card.active").forEach((el) => el.classList.remove("active"));
+}
+
+function clearSelection() {
+  const selection = window.getSelection();
+  if (selection) selection.removeAllRanges();
 }
 
 function highlightActive() {
@@ -361,6 +389,7 @@ function toggleSection(node) {
   const btn = node.el.querySelector(".as-toggle");
   btn.setAttribute("aria-expanded", String(!node.collapsed));
   btn.textContent = node.collapsed ? "▶" : "▼";
+  if (node.collapsed && state.activeId === node.id) clearHighlight();
 }
 
 function focusSection(id) {
@@ -371,6 +400,18 @@ function focusSection(id) {
   node.el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
   node.el.classList.add("flash");
   setTimeout(() => node.el.classList.remove("flash"), 900);
+}
+
+function focusSource(node) {
+  const el = containerEl(node.parentId);
+  if (!el) return;
+  const key = normalize(node.anchor);
+  const span = Array.from(el.querySelectorAll(".anchor")).find((s) => normalize(s.dataset.term) === key);
+  if (!span) return;
+  setActive(node.id);
+  span.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  span.classList.add("flash");
+  setTimeout(() => span.classList.remove("flash"), 900);
 }
 
 function descendantIds(id) {
@@ -405,7 +446,7 @@ function removeSection(node) {
 function updateActions() {
   const count = state.order.filter((id) => {
     const node = state.nodes.get(id);
-    return node && !node.isRoot && node.kind !== "dive";
+    return node && SIDE_KINDS.has(node.kind);
   }).length;
   actionCount.textContent = String(count);
   actionsEmpty.hidden = count > 0;
@@ -455,8 +496,8 @@ function renderTrail() {
       const crumb = document.createElement("button");
       crumb.type = "button";
       crumb.className = "crumb" + (node.id === state.activeId ? " crumb-current" : "");
-      crumb.textContent = truncate(node.anchor, 26);
-      crumb.title = node.anchor;
+      crumb.textContent = truncate(nodeLabel(node), 26);
+      crumb.title = nodeLabel(node);
       crumb.addEventListener("click", () => focusSection(node.id));
       trailEl.appendChild(crumb);
     });
@@ -498,12 +539,11 @@ function renderToolbarResults(containerId, text) {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "toolbar-result";
-    row.setAttribute("role", "menuitem");
     row.dataset.kind = node.kind;
     row.innerHTML = `
       <span class="tr-loc" data-kind="${escapeAttr(node.kind)}" aria-hidden="true">${KIND_LOC[node.kind] || "•"}</span>
       <span class="tr-kind">${escapeHtml(KIND_LABELS[node.kind] || node.kind)}</span>
-      <span class="tr-anchor">“${escapeHtml(node.anchor)}”</span>
+      <span class="tr-anchor">${node.kind === "ask" ? escapeHtml(nodeLabel(node)) : "“" + escapeHtml(nodeLabel(node)) + "”"}</span>
     `;
     row.addEventListener("click", () => {
       hideToolbar();
@@ -530,7 +570,9 @@ function showToolbar(text, rect, containerId) {
 function hideToolbar() {
   toolbar.hidden = true;
   toolbarResults.hidden = true;
+  toolbarAskInput.value = "";
   state.toolbarContext = null;
+  clearSelection();
 }
 
 function performAction(kind) {
@@ -579,7 +621,7 @@ function renderNotes() {
 function exportNotes() {
   const lines = ["# My Qriously trail", ""];
   chainOf(state.activeId).forEach((node) => {
-    lines.push(`- ${node.anchor}`);
+    lines.push(`- ${nodeLabel(node)}`);
   });
   lines.push("", "## Saved notes", "");
   state.notes.forEach((n) => lines.push(`- “${n.text}” — from ${n.context}`));
@@ -714,13 +756,22 @@ $("lensSkip").addEventListener("click", () => {
 });
 lensChip.addEventListener("click", () => openLens(state.question));
 
-toolbar.querySelectorAll("button").forEach((btn) => {
+toolbar.querySelectorAll(".toolbar-actions button").forEach((btn) => {
   btn.addEventListener("click", () => performAction(btn.dataset.act));
+});
+
+toolbarAskForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const ctx = state.toolbarContext;
+  const question = toolbarAskInput.value.trim();
+  if (!ctx || !question) return;
+  createAsk(ctx.containerId, ctx.text, question);
+  hideToolbar();
 });
 
 document.addEventListener("mouseup", (event) => {
   if (toolbar.contains(event.target)) return;
-  if (event.target.closest && event.target.closest(".overlay, .notebook")) return;
+  if (event.target.closest && event.target.closest(".overlay, .notebook, .as-head, button")) return;
   setTimeout(() => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
@@ -729,6 +780,7 @@ document.addEventListener("mouseup", (event) => {
     const range = selection.getRangeAt(0);
     const start = range.startContainer;
     const host = start.nodeType === 1 ? start : start.parentElement;
+    if (host && host.closest(".as-head, button, .toolbar, .composer, .topbar, .trail")) return;
     const container = host && host.closest("[data-node-id]");
     if (!container || !container.contains(range.endContainer)) return;
     showToolbar(text, range.getBoundingClientRect(), container.dataset.nodeId);
@@ -755,7 +807,10 @@ document.addEventListener("click", (event) => {
   if (anchor) {
     const container = anchor.closest("[data-node-id]");
     if (container) showToolbar(anchor.dataset.term, anchor.getBoundingClientRect(), container.dataset.nodeId);
+    return;
   }
+  if (event.target.closest(".action-section, .side-card, .toolbar, .notebook, .overlay, .composer, .topbar, .trail, .home")) return;
+  clearHighlight();
 });
 
 document.addEventListener("keydown", (event) => {
@@ -775,9 +830,9 @@ function handleSectionClick(event) {
   if (!nodeEl) return;
   const node = state.nodes.get(nodeEl.dataset.id);
   if (!node) return;
-  if (event.target.closest(".as-toggle")) return toggleSection(node);
   if (event.target.closest(".as-remove")) return removeSection(node);
-  if (event.target.closest(".as-anchor")) return focusSection(node.id);
+  if (event.target.closest(".as-source")) return focusSource(node);
+  if (event.target.closest(".as-toggle, .as-anchor")) return toggleSection(node);
 }
 
 readingSections.addEventListener("click", handleSectionClick);

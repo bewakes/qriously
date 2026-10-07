@@ -102,16 +102,20 @@
     </div>
   </div>
 
-  <div class="toolbar" id="toolbar" role="menu" aria-label="Actions for selected text" hidden>
+  <div class="toolbar" id="toolbar" role="dialog" aria-label="Actions for selected text" hidden>
     <div class="toolbar-preview" id="toolbarPreview"></div>
     <div class="toolbar-results" id="toolbarResults" hidden></div>
     <div class="toolbar-actions">
-      <button type="button" data-act="dive" role="menuitem">Dive in</button>
-      <button type="button" data-act="eli5" role="menuitem">ELI5</button>
-      <button type="button" data-act="example" role="menuitem">Examples</button>
-      <button type="button" data-act="define" role="menuitem">Define</button>
-      <button type="button" data-act="note" class="tb-note" role="menuitem">Save note</button>
+      <button type="button" data-act="dive">Dive in</button>
+      <button type="button" data-act="eli5">ELI5</button>
+      <button type="button" data-act="example">Examples</button>
+      <button type="button" data-act="define">Define</button>
+      <button type="button" data-act="note" class="tb-note">Save note</button>
     </div>
+    <form class="toolbar-ask" id="toolbarAskForm" autocomplete="off">
+      <input id="toolbarAskInput" type="text" placeholder="Ask about this…" aria-label="Ask a question about the selected text" />
+      <button type="submit">Ask</button>
+    </form>
   </div>
 
   <div class="overlay" id="lensOverlay" hidden>
