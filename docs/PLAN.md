@@ -25,26 +25,34 @@ a backend, it does not redesign it.
 
 ## Phase 1 — Backend foundation
 
-Scaffold and prove the boring parts.
+Scaffold and prove the boring parts. **Status: complete** (PRs #2, #5, #9, #10, #11;
+layering codified in #4). All backend code follows the layering rule in
+`ARCHITECTURE.md` §5: the Django model is the single entity, decisions live in
+framework-free `policies.py`/`lenses/`/`safety/`, services own transactions, and
+`api.py` is thin.
 
-- Django 5 + DRF project under `server/`; split settings; `.env.example`.
-- `docker-compose.yml` with Postgres + pgvector; `make`/README commands.
-- `core/constants.py` (single source for model id, `BASE_COST`, `DEPTH_MULTIPLIER`,
-  `CACHE_HIT_RATIO`, `SIGNUP_GRANT`, `SCREENING_POLICY`, `PROMPT_VERSION`) — no
-  literals in flow code.
-- Custom `User`, `DeviceSession`; anonymous device auth + `POST /auth/device`.
-- `Wallet` + append-only `CreditEntry` + `signup_grant` on creation. Gift is per
-  **account**, no decay for now.
-- `telemetry`: `RequestLog` + versioned `ModelPrice` models and admin; every
-  metered call will create one `RequestLog`.
-- `safety` app scaffold: `screening.check()` interface + `AllowAllPolicy`.
-- `select_for_update` spend helper + a `credits/pricing.py` reading constants.
-- `GET /me`, `GET /credits/balance`, `GET /credits/ledger`.
-- Admin registered for all models; health check endpoint.
-- `ruff` + `pytest` wired; model + auth + ledger + pricing tests.
+- [x] Django 5 + DRF project under `server/`; env-driven settings; `.env.example`.
+- [x] `docker-compose.yml` with `pgvector/pgvector:pg16`; README commands.
+- [x] `core/constants.py` (single source for model id, `BASE_COST`,
+      `DEPTH_MULTIPLIER`, `CACHE_HIT_RATIO`, `SIGNUP_GRANT`, `SCREENING_POLICY`,
+      `PROMPT_VERSION`) — no literals in flow code.
+- [x] Custom `User`, `DeviceSession`; anonymous device auth + `POST /auth/device`.
+- [x] `Wallet` + append-only `CreditEntry` + `signup_grant` on creation (per
+      account, no decay). `Credits/policies.price()` handles the fractional
+      cache-hit charge.
+- [x] `telemetry`: `RequestLog` + versioned `ModelPrice` (+ seed) and admin;
+      every metered call creates one `RequestLog`. `CreditEntry.request` links a
+      charge to its request; `vendor_cost_micros` tracked separately.
+- [x] `safety`: pure `ScreeningPolicy` interface + `AllowAllPolicy` + registry.
+- [x] `select_for_update` spend helper + `credits/policies.py` reading constants.
+- [x] `GET /me`, `GET /credits/balance`, `GET /credits/ledger`.
+- [x] Admin registered for all models; `/health` + `/health/ready`.
+- [x] `ruff` + `pytest` wired; constants, auth, ledger, pricing, telemetry,
+      screening and a layering-guard test (pure modules never import Django).
 
 **Done when:** a device can get a token, receive a mock grant, read its balance,
-and the ledger records every change; tests green.
+and the ledger records every change — with each charge traceable to a request
+and vendor cost recorded separately; tests green.
 
 ---
 
