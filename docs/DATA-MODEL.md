@@ -119,51 +119,37 @@ separate columns on the same request, "which kinds of queries cost the most"
 and margin-per-request are both simple aggregations.
 
 ### `RequestLog` (per-request context, `telemetry`)
-The auditable context every credit change and usage event hangs off. One row per
-metered call, created before screening/spend.
+The auditable context every credit change hangs off. One row per metered call,
+created before screening/spend. **MVP subset** — only the fields the pipeline
+writes today.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID pk | the `request_id` surfaced to the client |
 | `user` | FK User | |
 | `wallet` | FK Wallet | |
-| `thread` | FK Thread, null | |
-| `node` | FK Node, null | set once the node exists |
-| `generation_job` | FK GenerationJob, null | |
 | `endpoint` | text | e.g. `nodes.create`, `generate` |
-| `method` | text | |
 | `kind` | text | action kind / `root` |
-| `concept` | FK Concept, null | |
 | `lens_bucket` | text | |
-| `cache_hit` | bool, null | null until lookup |
-| `lookup_layer` | enum, null | |
-| `screening_status` | enum | `allow` · `block` · `review` |
-| `screening_category` | text, null | |
-| `screening_score` | float, null | |
-| `screening_provider` | text, null | policy/classifier identity |
-| `status` | enum | `pending` · `denied` · `blocked` · `succeeded` · `failed` |
+| `status` | enum | `pending` · `succeeded` · `failed` |
 | `error_code` | text, null | |
 | `credits_charged` | bigint, default 0 | set at settle |
-| `vendor_cost_micros` | bigint, null | denormalized from UsageEvent for fast analytics |
+| `vendor_cost_micros` | bigint, null | our LLM spend, separate from credits charged |
 | `tokens_in`, `tokens_out` | int, null | |
 | `latency_ms` | int, null | |
-| `client_fingerprint` | text, null | **hashed** IP/UA; never raw PII |
 | `idempotency_key` | text, null, unique | |
 | `created_at`, `completed_at` | timestamptz | |
 
-### `ModelPrice` (vendor cost table, `telemetry`)
-Versioned so historical requests keep their original cost.
+**Deferred until their code exists** (nullable fields are cheap to add then):
+`thread`/`node`/`concept`/`generation_job` FKs, `cache_hit`/`lookup_layer`
+(reuse layer), `screening_*` (safety integration), `client_fingerprint`,
+`price_version`.
 
-| Field | Type | Notes |
-|---|---|---|
-| `id` | UUID pk | |
-| `model` | text | e.g. `deepseek-flash` |
-| `input_per_1k_micros` | bigint | vendor USD→micros per 1k input tokens |
-| `output_per_1k_micros` | bigint | |
-| `currency` | text | default `USD` |
-| `version` | text | referenced by `UsageEvent.price_version` |
-| `effective_at` | timestamptz | |
-| `unique_together` | `(model, version)` | |
+### Vendor pricing (MVP)
+Vendor prices live in **`core/constants.MODEL_PRICE`** rather than a table
+(`deepseek-flash`: 140 input / 280 output micros per 1k). A versioned
+`ModelPrice` table — so historical requests keep their original cost — replaces
+the constant when billing needs price history (payments phase).
 
 ---
 

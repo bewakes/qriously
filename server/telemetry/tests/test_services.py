@@ -3,13 +3,8 @@ from django.contrib.auth import get_user_model
 
 from credits.models import Reason
 from credits.services import get_wallet, spend
-from telemetry.models import RequestStatus, ScreeningStatus
-from telemetry.services import (
-    finish_request,
-    record_screening,
-    resolve_vendor_cost,
-    start_request,
-)
+from telemetry.models import RequestStatus
+from telemetry.services import finish_request, resolve_vendor_cost, start_request
 
 User = get_user_model()
 
@@ -28,10 +23,6 @@ def test_request_lifecycle():
     )
     assert request.status == RequestStatus.PENDING
 
-    record_screening(request, status=ScreeningStatus.ALLOW, provider="allow_all")
-    request.refresh_from_db()
-    assert request.screening_status == ScreeningStatus.ALLOW
-
     finish_request(
         request,
         status=RequestStatus.SUCCEEDED,
@@ -39,10 +30,7 @@ def test_request_lifecycle():
         tokens_in=812,
         tokens_out=337,
         vendor_cost_micros_value=1840,
-        price_version="v1",
         latency_ms=2410,
-        cache_hit=False,
-        lookup_layer="generated",
     )
     request.refresh_from_db()
     assert request.status == RequestStatus.SUCCEEDED
@@ -51,14 +39,13 @@ def test_request_lifecycle():
 
 
 @pytest.mark.django_db
-def test_resolve_vendor_cost_uses_seeded_price():
-    cost, version = resolve_vendor_cost("deepseek-flash", 1000, 1000)
-    assert (cost, version) == (420, "v1")
+def test_resolve_vendor_cost_uses_configured_price():
+    assert resolve_vendor_cost("deepseek-flash", 1000, 1000) == 420
 
 
 @pytest.mark.django_db
 def test_resolve_vendor_cost_unknown_model():
-    assert resolve_vendor_cost("nope", 1000, 1000) == (None, None)
+    assert resolve_vendor_cost("nope", 1000, 1000) is None
 
 
 @pytest.mark.django_db
