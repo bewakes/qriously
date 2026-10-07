@@ -135,6 +135,11 @@ changed several times: margin rail → list+window → inline action sections �
 - Django 5 + DRF on Postgres/pgvector; ASGI; DeepSeek behind
   `generation/llm` only. Read `docs/ARCHITECTURE.md`, `docs/DATA-MODEL.md`,
   `docs/API.md`, `docs/PLAN.md` before writing backend code.
+- **Layering (enforced):** one entity per concept (the Django model — no
+  dataclass/mapper duplicates); all decisions in framework-free `policies.py`
+  (and `lenses/`, `safety/`, `core/constants.py`) that must **not import
+  Django**; `services.py` runs use cases and owns `transaction.atomic`; `api.py`
+  is thin. ORM imports stay in models/services/selectors/admin.
 - Two layers: shared immutable `Concept`/`ContentVariant` (lens-indexed,
   reusable) referenced by per-user `Thread`/`Span`/`Node`. Reuse is a reference,
   never a copy. `ContentVariant` rows are immutable — a new `prompt_version`
