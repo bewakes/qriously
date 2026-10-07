@@ -233,10 +233,22 @@ The entire app is a single **node graph**. The trail is a path, notes are flagge
 ### 12.2 Generation contract (for the LLM phase)
 Input: `(parentContext, anchor.text, kind, lens)`. Output: a node with `title`, `body`, `citations`, `estReadSeconds`, and **suggested follow-up anchors** (entities worth branching).
 
+> **Backend turn (proposed):** this contract is realized server-side — see
+> `docs/ARCHITECTURE.md` §7–8 and `docs/API.md` §4. The request is a `POST`
+> returning a job whose SSE stream emits `meta`/`token`/`done`/`usage`/`error`.
+> The output is persisted as an immutable `ContentVariant` indexed by
+> `concept × kind × lens_bucket × context_fingerprint × prompt_version`; a
+> matching request is **reused**, not regenerated, and is charged a configurable
+> **fraction** of the full price (`CACHE_HIT_RATIO`, never free). Queries pass a
+> **screening** hook (allow-all in the MVP) before any spend, which can return
+> `422 content_blocked`. Credits are debited reserve→settle with refund on
+> failure.
+
 - **Stream** tokens; patch the node as they arrive.
-- **Cache** by hash of `(parentId, anchor.text, kind, lens)`.
+- **Cache** by hash of `(parentId, anchor.text, kind, lens)` — extended to the
+  lens-bucketed `ContentVariant` lookup above.
 - **Prefetch** likely next branches (top entities in the streamed text) so dives feel instant.
-- **Trust:** every non-trivial claim carries a citation; add a quiet "simplified for your level" note when ELI5/level changes fidelity.
+- **Trust:** every non-trivial claim carries a citation; add a quiet "simplified for your level" note when ELI5/level changes fidelity. *(Real citations are deferred; the UI must not claim verification until then — see decision log v11.)*
 
 ### 12.3 Mock content plan (MVP)
 No backend. Ship a hand-authored graph for one or two seed topics.
@@ -350,6 +362,20 @@ The visual system is **reading-first**: the prose and the branching structure ca
 - **v8:** two changes. (1) The `L1`/`L2` depth labels were **removed** from section headers and the results menu — depth is conveyed spatially by indentation and the trail. (2) The bottom composer **appends a new question section below** the current reading instead of replacing the session (`addQuestion()`, `generateRoot()` in `content.js`), so a session can accumulate several questions. Each question section owns its nested dives; its asides join the shared side rail and its inline marker on the origin uses the same direction rules. Removing a question removes its descendants; the trail's leading crumb is the active path's base question.
 - **v9:** added a free-text **Ask** field to the selection toolbar for questions the presets can't express. It creates **one** inline node (kind `ask`; anchor = the phrase, title = your question), scoped to the selection and available on every selection. Deliberately **single-shot** — no chat/thread state in the toolbar; deeper follow-ups go through normal selection, and the bottom composer stays the route for a fresh top-level question. Rationale: the presets cover the common angles; a scoped free-text ask covers the long tail; the two composers differ by **scope** (span vs. session), not by capability.
 - **v10 (current):** section/side-card header affordances were made explicit. Clicking a section **title** now toggles collapse (previously it "focused" a section already in view and felt inert), and a small **backlink** (`↩`) jumps to and highlights the source phrase in the reading sheet — replacing the old side-card behavior where the title silently highlighted the origin. The chevron and title do the same thing; `↩` is the inverse of clicking the anchor. Headers are non-selectable (`user-select: none`) so clicking a title can never spawn a text selection and pop the toolbar, and the anchor highlight is cleared on outside-click and when its section is collapsed.
+- **v11 (backend turn, proposed):** the mock generator is superseded by a real
+  DeepSeek-backed (`deepseek-flash`) API with **lens-indexed content reuse** and
+  **metered credits**. The interaction model is unchanged — this wires it to a
+  server (`docs/ARCHITECTURE.md`, `docs/DATA-MODEL.md`, `docs/API.md`,
+  `docs/PLAN.md`). Consequences the UI must absorb: generation is now
+  async/streamed over SSE with an optimistic **credit meter** that reconciles on
+  the `usage` event and surfaces a quiet out-of-credits state; a configurable
+  **screening** step can decline a query (`422`) before any spend; **reused
+  content is still charged a small fraction** (shown, not hidden); failed
+  branches refund and offer inline retry; the "3 sources · verified" meta line is
+  removed until citations are real; and `?demo=1` keeps the mock adapter for
+  offline/demo use. `content.js` remains as that offline adapter behind the same
+  `generateRoot`/`generateNode`/`generateAsk` signatures. Every charge is tied to
+  a `request_id`; the backend also records vendor LLM cost per request.
 
 ## 21. Implementation map
 

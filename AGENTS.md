@@ -18,23 +18,35 @@ qriously/
 ├── DESIGN.md           # landing design system + rationale for each direction
 ├── nocturne/ daylight/ playtime/ blueprint/ riso/ atelier/
 ├── liquidglass/ questlog/ clay/          # nine landing designs
-└── app/                # the immersive learning app
-    ├── INTERACTION-SPEC.md  # interaction + decisions (READ FIRST)
-    ├── index.html
-    ├── styles.css           # theme tokens + component styles
-    ├── content.js           # mock node graph + generator (the fake "AI")
-    └── script.js            # app engine (state, rendering, interaction)
+├── docs/               # end-to-end architecture (READ docs/ARCHITECTURE.md)
+│   ├── ARCHITECTURE.md  # thesis, stack, flows, decisions (proposed)
+│   ├── DATA-MODEL.md    # content layer + thread layer schema
+│   ├── API.md           # REST + SSE contract (v1)
+│   └── PLAN.md          # phased build plan
+├── app/                # the immersive learning app (frontend)
+│   ├── INTERACTION-SPEC.md  # interaction + decisions (READ FIRST)
+│   ├── index.html
+│   ├── styles.css           # theme tokens + component styles
+│   ├── content.js           # mock node graph + generator (demo/offline "AI")
+│   └── script.js            # app engine (state, rendering, interaction)
+└── server/             # (planned) Django + DRF backend: accounts, credits,
+                        # content, learning, safety, generation, telemetry
 ```
 
-Landing folders are independent, self-contained pages. `app/` is the real
-product surface. Read `app/INTERACTION-SPEC.md` before changing the app.
+Landing folders are independent, self-contained pages. `app/` is the product
+frontend. Read `app/INTERACTION-SPEC.md` before changing the app, and
+`docs/` before touching the backend.
 
 ## Running
 
 - Landing chooser: open the root `index.html`.
 - App: open `app/index.html`, or `app/index.html?demo=1` for a pre-seeded
   session (questions, dives and asides), handy for screenshots/manual testing.
+  `?demo=1` uses the offline mock and needs no server.
 - Serve anything: `python3 -m http.server 8000` (app at `/app/`).
+- Backend (once built, Phase 1+): `docker compose up -d db` then
+  `python server/manage.py runserver` (or the ASGI server) — see
+  `docs/PLAN.md`.
 
 ## The app (current model — v8)
 
@@ -83,7 +95,8 @@ changed several times: margin rail → list+window → inline action sections �
   lens)`, `generateRoot(question, lens)` and `generateAsk(parent, anchor,
   question, lens)`, all with a `synthesize()` fallback so *any*
   selection/question produces plausible text. **To wire a real LLM, replace
-  these behind the same interfaces** (title, body, citations, estReadSeconds).
+  these behind the same interfaces** (title, body, citations, estReadSeconds);
+  the end-to-end plan (`docs/`) keeps this mock as the offline/demo adapter.
 - `styles.css` uses CSS custom properties in `:root` + `html[data-theme=...]`.
   Kind colors are `--k-dive/-eli5/-example/-define/-note`. Side cards
   (`.side-card`), question sections (`.question-section`) and the results menu
@@ -93,7 +106,8 @@ changed several times: margin rail → list+window → inline action sections �
 
 ### Known limitations / next steps
 
-- Content is mock; no LLM, persistence, or accounts. `estReadSeconds` is fake.
+- Content is mock; no LLM, persistence, accounts, or credits. `estReadSeconds`
+  is fake. The backend build is planned in `docs/PLAN.md` (proposed).
 - Landing and app are not yet connected (landing submit is visual-only).
 - Mobile: the actions rail stacks below the reading sheet; the composer stays
   docked. Not yet a native bottom-sheet.
@@ -115,3 +129,30 @@ changed several times: margin rail → list+window → inline action sections �
 - No comments in code unless they earn their place.
 - When the app's interaction model changes, update
   `app/INTERACTION-SPEC.md`'s Decision log in the same change.
+
+### Backend (planned — `server/`)
+
+- Django 5 + DRF on Postgres/pgvector; ASGI; DeepSeek behind
+  `generation/llm` only. Read `docs/ARCHITECTURE.md`, `docs/DATA-MODEL.md`,
+  `docs/API.md`, `docs/PLAN.md` before writing backend code.
+- Two layers: shared immutable `Concept`/`ContentVariant` (lens-indexed,
+  reusable) referenced by per-user `Thread`/`Span`/`Node`. Reuse is a reference,
+  never a copy. `ContentVariant` rows are immutable — a new `prompt_version`
+  instead of an update.
+- Credits are integer micro-credits in an append-only `CreditEntry` ledger;
+  balance is a cached sum guarded by `select_for_update`. Never a float.
+- A **screening layer** (`safety/`) runs before any spend; MVP policy is
+  allow-all, but the interface and the `422 content_blocked` path exist.
+- Every metered call creates a `RequestLog`; credits, usage, screening and vendor
+  cost reference it. **Vendor LLM cost** (`vendor_cost_micros`, from the
+  versioned `ModelPrice` table) is tracked separately from the credits charged.
+- **Cache hits are charged** a configurable fraction (`CACHE_HIT_RATIO`), never
+  free.
+- All tunables (model id, prices, per-kind costs, depth multipliers, cache ratio,
+  signup grant, screening policy, prompt version) live in `core/constants.py`,
+  not scattered literals.
+- Generation requests carry an `Idempotency-Key`; debit is reserve→settle, and
+  failures refund. Never charge for a failed generation.
+- No vendor SDK calls outside `generation/`; keep the DeepSeek client behind an
+  interface so it can be swapped. Default model is `deepseek-flash`.
+- No PII in the lens; never join lens data to identity.
