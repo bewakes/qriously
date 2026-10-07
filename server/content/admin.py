@@ -7,7 +7,7 @@ from .models import Concept, ConceptLink, ContentVariant
 class ConceptAdmin(admin.ModelAdmin):
     list_display = ["id", "text", "kind_hint", "created_at"]
     search_fields = ["key", "text"]
-    readonly_fields = ["id", "key", "embedding", "created_at"]
+    readonly_fields = ["id", "key", "created_at"]
 
 
 @admin.register(ContentVariant)
@@ -36,7 +36,6 @@ class ContentVariantAdmin(admin.ModelAdmin):
         "body",
         "citations",
         "est_read_seconds",
-        "embedding",
         "model",
         "created_at",
     ]

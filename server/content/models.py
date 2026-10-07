@@ -1,6 +1,5 @@
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
-from pgvector.django import VectorField
 
 from core.models import TimeStampedModel, UUIDModel
 
@@ -36,7 +35,6 @@ class Concept(UUIDModel):
     kind_hint = models.CharField(
         max_length=16, choices=ConceptKindHint.choices, null=True, blank=True
     )
-    embedding = VectorField(dimensions=1536, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -60,7 +58,6 @@ class ContentVariant(UUIDModel):
     body = models.TextField()
     citations = models.JSONField(default=list, blank=True)
     est_read_seconds = models.IntegerField(default=0)
-    embedding = VectorField(dimensions=1536, null=True, blank=True)
     model = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
 
