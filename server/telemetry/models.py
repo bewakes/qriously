@@ -1,0 +1,99 @@
+from django.conf import settings
+from django.db import models
+
+from core.models import UUIDModel
+
+
+class ScreeningStatus(models.TextChoices):
+    ALLOW = "allow"
+    BLOCK = "block"
+    REVIEW = "review"
+
+
+class RequestStatus(models.TextChoices):
+    PENDING = "pending"
+    DENIED = "denied"
+    BLOCKED = "blocked"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class LookupLayer(models.TextChoices):
+    EXACT = "exact"
+    BROADENED = "broadened"
+    SEMANTIC = "semantic"
+    GENERATED = "generated"
+
+
+class RequestLog(UUIDModel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="requests"
+    )
+    wallet = models.ForeignKey(
+        "credits.Wallet", on_delete=models.CASCADE, related_name="requests"
+    )
+    endpoint = models.CharField(max_length=64)
+    method = models.CharField(max_length=8, default="POST")
+    kind = models.CharField(max_length=32, blank=True)
+    lens_bucket = models.CharField(max_length=64, blank=True)
+
+    cache_hit = models.BooleanField(null=True, blank=True)
+    lookup_layer = models.CharField(
+        max_length=16, choices=LookupLayer.choices, null=True, blank=True
+    )
+
+    screening_status = models.CharField(
+        max_length=16, choices=ScreeningStatus.choices, default=ScreeningStatus.ALLOW
+    )
+    screening_category = models.CharField(max_length=64, null=True, blank=True)
+    screening_score = models.FloatField(null=True, blank=True)
+    screening_provider = models.CharField(max_length=64, null=True, blank=True)
+
+    status = models.CharField(
+        max_length=16, choices=RequestStatus.choices, default=RequestStatus.PENDING
+    )
+    error_code = models.CharField(max_length=64, null=True, blank=True)
+
+    credits_charged = models.BigIntegerField(default=0)
+    vendor_cost_micros = models.BigIntegerField(null=True, blank=True)
+    tokens_in = models.IntegerField(null=True, blank=True)
+    tokens_out = models.IntegerField(null=True, blank=True)
+    latency_ms = models.IntegerField(null=True, blank=True)
+    price_version = models.CharField(max_length=32, null=True, blank=True)
+
+    client_fingerprint = models.CharField(max_length=64, null=True, blank=True)
+    idempotency_key = models.CharField(
+        max_length=255, null=True, blank=True, unique=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "telemetry_request_log"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["kind", "cache_hit"]),
+        ]
+
+    def __str__(self):
+        return f"{self.endpoint} {self.status} ({self.id})"
+
+
+class ModelPrice(UUIDModel):
+    model = models.CharField(max_length=64)
+    input_per_1k_micros = models.BigIntegerField()
+    output_per_1k_micros = models.BigIntegerField()
+    currency = models.CharField(max_length=8, default="USD")
+    version = models.CharField(max_length=32)
+    effective_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "telemetry_model_price"
+        unique_together = [("model", "version")]
+        ordering = ["-effective_at"]
+
+    def __str__(self):
+        return f"{self.model}@{self.version}"

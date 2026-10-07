@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "core",
     "accounts",
     "credits",
+    "telemetry",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
