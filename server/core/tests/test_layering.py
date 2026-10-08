@@ -9,6 +9,7 @@ PURE_FILES = [
     "telemetry/policies.py",
     "content/text.py",
     "content/seeds.py",
+    "generation/prompts.py",
     "core/constants.py",
 ]
 PURE_DIRS = ["lenses", "safety"]
