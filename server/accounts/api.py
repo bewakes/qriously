@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -21,7 +22,7 @@ class DeviceAuthView(APIView):
     authentication_classes = []
     permission_classes = []
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         label = (request.data.get("label") or "")[:200]
         user, _session, token = create_anonymous_session(label=label)
         wallet = get_wallet(user)
@@ -39,7 +40,7 @@ class DeviceAuthView(APIView):
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         wallet = get_wallet(request.user)
         return Response(
             {

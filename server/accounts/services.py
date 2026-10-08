@@ -5,7 +5,9 @@ from .policies import generate_token
 
 
 @transaction.atomic
-def create_anonymous_session(label=""):
+def create_anonymous_session(
+    label: str = "",
+) -> tuple[User, DeviceSession, str]:
     user = User.objects.create_user(is_anonymous_device=True)
     raw_token, token_hash = generate_token()
     session = DeviceSession.objects.create(

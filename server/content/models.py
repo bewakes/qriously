@@ -41,7 +41,7 @@ class Concept(UUIDModel):
         db_table = "content_concept"
         ordering = ["-created_at"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.text
 
 
@@ -78,10 +78,10 @@ class ContentVariant(UUIDModel):
         ]
         indexes = [models.Index(fields=["concept", "kind", "lens_bucket"])]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.kind}:{self.title} ({self.lens_bucket})"
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         if not self._state.adding:
             raise ValueError(
                 "ContentVariant rows are immutable; create a new prompt_version."
@@ -108,5 +108,5 @@ class ConceptLink(UUIDModel, TimeStampedModel):
             )
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.parent.key} -[{self.kind}]-> {self.child.key}"

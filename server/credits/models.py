@@ -34,20 +34,20 @@ class Wallet(UUIDModel, TimeStampedModel):
     class Meta:
         db_table = "credits_wallet"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"wallet({self.user}) = {self.balance}"
 
-    def apply_grant(self, amount):
+    def apply_grant(self, amount: int) -> None:
         self.balance += amount
         self.lifetime_granted += amount
         self.version += 1
 
-    def apply_debit(self, amount):
+    def apply_debit(self, amount: int) -> None:
         self.balance -= amount
         self.lifetime_spent += amount
         self.version += 1
 
-    def apply_refund(self, amount):
+    def apply_refund(self, amount: int) -> None:
         self.balance += amount
         self.lifetime_spent = max(0, self.lifetime_spent - amount)
         self.version += 1
@@ -79,5 +79,5 @@ class CreditEntry(UUIDModel):
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["wallet", "-created_at"])]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.entry_type} {self.delta:+d} -> {self.balance_after}"
