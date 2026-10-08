@@ -228,8 +228,11 @@ the most?" without re-plumbing.
 5. **Authorize spend**: `cost = price(kind, lens.depth, cache_hit)`. A **cache
    hit is charged a configurable fraction** of the generated price — never free,
    so reuse keeps producing revenue while unit cost stays far below a fresh call.
-   Atomically check-and-hold (`select_for_update`); insufficient balance → `402`,
-   request closed `failed` with `error_code=insufficient_credits`.
+   Check the balance covers `cost` (`select_for_update`); insufficient → `402`,
+   request closed `failed` with `error_code=insufficient_credits`. (MVP checks
+   the balance up front and charges at settle, so a failed generation is never
+   charged and needs no refund; a dedicated reserve/settle `CreditHold` is
+   deferred.)
 6. **Hit**: skip generation; emit `meta(cache_hit=true, cost)`; replay the body
    as a single `token`; go to 8.
 7. **Miss**: stream from DeepSeek, relay tokens over SSE; on completion persist a
@@ -238,14 +241,17 @@ the most?" without re-plumbing.
    a versioned table arrives with billing), stored separately from credits charged.
 8. **Persist node**: create the `Node` linked to the variant (hit or miss),
    snapshot lens, `status=done`.
-9. **Settle**: convert the hold to a `debit`, write `UsageEvent` + `CreditEntry`
-   (each referencing the request), close the request, emit `usage`.
-10. **Failure**: void/refund the hold, mark the node `error`, close the request
-    `failed`, emit `error`; the rest of the session is unaffected and retry
-    reuses the same idempotency key.
+9. **Settle**: debit the wallet, write `UsageEvent` + `CreditEntry` (each
+   referencing the request), close the request, emit `usage`.
+10. **Failure**: mark the job and node `error`, close the request `failed`, emit
+    `error`; nothing was charged, so there is nothing to refund, and the rest of
+    the session is unaffected. Retry reuses the same idempotency key.
 
-Pricing is a small pure function in `credits/pricing.py` reading the constants
-above, so it can grow into subscriptions/plans without touching the flow.
+The MVP implements this as two services: **`prepare_generation`** (steps 1–5,
+plus enqueuing a `GenerationJob` — also for a hit, so the stream can replay it)
+and **`stream_generation`** (steps 6–10). Pricing is a small pure function in
+`credits/policies.py` reading the constants above, so it can grow into
+subscriptions/plans without touching the flow.
 
 ## 8. Streaming contract (SSE)
 
