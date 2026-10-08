@@ -11,7 +11,7 @@ from core.constants import (
     LLM_TIMEOUT_SECONDS,
 )
 
-from .base import StreamChunk
+from .base import Message, StreamChunk
 from .errors import LLMError
 from .sse import DONE_SENTINEL, ChatCompletionChunk, decode_chunk, extract_data
 
@@ -23,15 +23,15 @@ class DeepSeekClient:
 
     def __init__(
         self,
-        api_key,
+        api_key: str,
         *,
-        base_url=DEFAULT_BASE_URL,
-        model=DEFAULT_MODEL,
-        timeout=LLM_TIMEOUT_SECONDS,
-        max_retries=LLM_MAX_RETRIES,
-        backoff=LLM_RETRY_BACKOFF_SECONDS,
-        http_client=None,
-    ):
+        base_url: str = DEFAULT_BASE_URL,
+        model: str = DEFAULT_MODEL,
+        timeout: float = LLM_TIMEOUT_SECONDS,
+        max_retries: int = LLM_MAX_RETRIES,
+        backoff: float = LLM_RETRY_BACKOFF_SECONDS,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
         self.api_key = api_key
         self.base_url = (base_url or DEFAULT_BASE_URL).rstrip("/")
         self.model = model
@@ -41,11 +41,11 @@ class DeepSeekClient:
         self._http_client = http_client
 
     @property
-    def endpoint(self):
+    def endpoint(self) -> str:
         return f"{self.base_url}/chat/completions"
 
     async def stream(
-        self, messages, *, model: str | None = None
+        self, messages: list[Message], *, model: str | None = None
     ) -> AsyncIterator[StreamChunk]:
         model = model or self.model
         attempt = 0
@@ -67,7 +67,9 @@ class DeepSeekClient:
             attempt += 1
             await asyncio.sleep(self.backoff * attempt)
 
-    async def _stream_once(self, messages, model):
+    async def _stream_once(
+        self, messages: list[Message], model: str
+    ) -> AsyncIterator[StreamChunk]:
         payload = {
             "model": model,
             "messages": messages,
@@ -103,7 +105,7 @@ class DeepSeekClient:
                 await client.aclose()
 
     @staticmethod
-    def _error_for(status):
+    def _error_for(status: int) -> LLMError:
         if status == 429:
             return LLMError(
                 "upstream_rate_limited", "DeepSeek rate limit", retryable=True

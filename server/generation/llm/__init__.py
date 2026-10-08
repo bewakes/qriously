@@ -14,7 +14,7 @@ __all__ = [
 ]
 
 
-def get_client():
+def get_client() -> LLMClient:
     return DeepSeekClient(
         os.environ.get("DEEPSEEK_API_KEY", ""),
         base_url=os.environ.get("DEEPSEEK_BASE_URL") or DEFAULT_BASE_URL,

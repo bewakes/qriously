@@ -1,5 +1,7 @@
 class LLMError(Exception):
-    def __init__(self, code, message="", *, retryable=False):
+    def __init__(
+        self, code: str, message: str = "", *, retryable: bool = False
+    ) -> None:
         self.code = code
         self.message = message
         self.retryable = retryable

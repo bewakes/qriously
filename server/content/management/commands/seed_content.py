@@ -8,7 +8,7 @@ from core.constants import DEFAULT_MODEL, PROMPT_VERSION
 class Command(BaseCommand):
     help = "Seed a few reusable content variants so cache hits are demonstrable."
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options) -> None:
         created = 0
         for seed in SEED_VARIANTS:
             concept = services.upsert_concept(

@@ -1,9 +1,6 @@
-"""Prompt construction for generation.
+"""Build model messages from a lens and kind (pure: no Django, no I/O)."""
 
-Pure module: no Django, no I/O, no vendor SDK. It only turns
-(lens, kind, text) into the messages a model receives, so it is fully
-unit-testable and the same on every request.
-"""
+from collections.abc import Mapping
 
 from core.constants import normalize_lens
 
@@ -59,30 +56,36 @@ KIND_GUIDANCE = {
 }
 
 
-def build_system_prompt(lens, kind):
+def build_system_prompt(lens: Mapping[str, str] | None, kind: str) -> str:
     """Return the lens- and kind-aware system prompt for a generation request."""
-    lens = normalize_lens(lens)
+    normalized = normalize_lens(lens)
     sections = [
         "You are Qriously, an explanation engine inside a learning reader.",
         KIND_GUIDANCE.get(kind, KIND_GUIDANCE["root"]),
-        FAMILIARITY_GUIDANCE[lens["familiarity"]],
-        DEPTH_GUIDANCE[lens["depth"]],
-        STYLE_GUIDANCE[lens["style"]],
-        GOAL_GUIDANCE[lens["goal"]],
+        FAMILIARITY_GUIDANCE[normalized["familiarity"]],
+        DEPTH_GUIDANCE[normalized["depth"]],
+        STYLE_GUIDANCE[normalized["style"]],
+        GOAL_GUIDANCE[normalized["goal"]],
         ANCHOR_RULE,
         TRUST_RULE,
     ]
     return "\n".join(sections)
 
 
-def build_user_prompt(*, text, kind, context=None):
+def build_user_prompt(*, text: str, kind: str, context: str | None = None) -> str:
     lines = [f"Explain: {text}"]
     if context:
         lines.append(f"Context this came from: {context}")
     return "\n".join(lines)
 
 
-def build_messages(*, text, kind, lens, context=None):
+def build_messages(
+    *,
+    text: str,
+    kind: str,
+    lens: Mapping[str, str] | None,
+    context: str | None = None,
+) -> list[dict[str, str]]:
     user = build_user_prompt(text=text, kind=kind, context=context)
     return [
         {"role": "system", "content": build_system_prompt(lens, kind)},

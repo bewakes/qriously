@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 DEFAULT_MODEL = "deepseek-flash"
 
 PROMPT_VERSION = "v1"
@@ -51,7 +53,7 @@ LENS_DIMENSIONS = {
 }
 
 
-def normalize_lens(lens):
+def normalize_lens(lens: Mapping[str, str] | None) -> dict[str, str]:
     merged = dict(DEFAULT_LENS)
     for key, allowed in LENS_DIMENSIONS.items():
         value = (lens or {}).get(key)
@@ -60,17 +62,19 @@ def normalize_lens(lens):
     return merged
 
 
-def lens_bucket(lens):
-    lens = normalize_lens(lens)
-    return ":".join(lens[dim] for dim in ("familiarity", "depth", "style", "goal"))
+def lens_bucket(lens: Mapping[str, str] | None) -> str:
+    normalized = normalize_lens(lens)
+    return ":".join(
+        normalized[dim] for dim in ("familiarity", "depth", "style", "goal")
+    )
 
 
-def lens_vector(lens):
-    lens = normalize_lens(lens)
+def lens_vector(lens: Mapping[str, str] | None) -> list[float]:
+    normalized = normalize_lens(lens)
     vector = []
     for dim in ("familiarity", "depth", "style", "goal"):
         values = LENS_DIMENSIONS[dim]
-        index = values.index(lens[dim])
+        index = values.index(normalized[dim])
         last = len(values) - 1
         vector.append(0.0 if last == 0 else round(2 * index / last - 1, 6))
     return vector

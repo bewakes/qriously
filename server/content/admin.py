@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from django.contrib import admin
+from django.http import HttpRequest
 
 from .models import Concept, ConceptLink, ContentVariant
 
@@ -40,7 +43,9 @@ class ContentVariantAdmin(admin.ModelAdmin):
         "created_at",
     ]
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(
+        self, request: HttpRequest, obj: ContentVariant | None = None
+    ) -> bool:
         return False
 
 

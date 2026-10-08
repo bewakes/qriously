@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
@@ -9,7 +11,9 @@ from core.models import TimeStampedModel, UUIDModel
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
-    def _create_user(self, email, password, **extra):
+    def _create_user(
+        self, email: str | None, password: str | None, **extra
+    ) -> User:
         if email:
             email = self.normalize_email(email)
         user = self.model(email=email, **extra)
@@ -20,12 +24,16 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_user(self, email=None, password=None, **extra):
+    def create_user(
+        self, email: str | None = None, password: str | None = None, **extra
+    ) -> User:
         extra.setdefault("is_staff", False)
         extra.setdefault("is_superuser", False)
         return self._create_user(email, password, **extra)
 
-    def create_superuser(self, email, password=None, **extra):
+    def create_superuser(
+        self, email: str, password: str | None = None, **extra
+    ) -> User:
         extra.setdefault("is_staff", True)
         extra.setdefault("is_superuser", True)
         if extra.get("is_staff") is not True:
@@ -50,11 +58,11 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDModel, TimeStampedModel):
     class Meta:
         db_table = "accounts_user"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.email or f"anon:{self.id}"
 
     @property
-    def is_anonymous(self):
+    def is_anonymous(self) -> bool:
         return self.is_anonymous_device
 
 
@@ -70,13 +78,13 @@ class DeviceSession(UUIDModel, TimeStampedModel):
     class Meta:
         db_table = "accounts_device_session"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user} [{self.label or 'device'}]"
 
     @property
-    def is_active(self):
+    def is_active(self) -> bool:
         return self.revoked_at is None
 
-    def revoke(self):
+    def revoke(self) -> None:
         self.revoked_at = timezone.now()
         self.save(update_fields=["revoked_at"])

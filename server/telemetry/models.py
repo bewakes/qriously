@@ -44,5 +44,5 @@ class RequestLog(UUIDModel):
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["user", "-created_at"])]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.endpoint} {self.status} ({self.id})"

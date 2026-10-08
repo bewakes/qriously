@@ -1,6 +1,8 @@
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, TypeAlias
+
+Message: TypeAlias = dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -15,5 +17,5 @@ class LLMClient(Protocol):
     model: str
 
     def stream(
-        self, messages, *, model: str | None = None
+        self, messages: list[Message], *, model: str | None = None
     ) -> AsyncIterator[StreamChunk]: ...

@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+
 from django.db import IntegrityError, transaction
 
 from core.constants import DEFAULT_MODEL, PROMPT_VERSION
@@ -5,12 +9,12 @@ from core.constants import lens_bucket as make_lens_bucket
 from core.constants import lens_vector as make_lens_vector
 
 from .models import Concept, ConceptLink, ContentVariant
-from .reuse import find_variant
+from .reuse import LookupResult, find_variant
 from .text import context_fingerprint, estimate_read_seconds, normalize
 
 
 @transaction.atomic
-def upsert_concept(text, kind_hint=None):
+def upsert_concept(text: str, kind_hint: str | None = None) -> Concept:
     key = normalize(text)
     if not key:
         raise ValueError("cannot upsert a concept from empty text")
@@ -21,7 +25,14 @@ def upsert_concept(text, kind_hint=None):
     return concept
 
 
-def _lookup_fields(*, concept, kind, lens, context_key, prompt_version):
+def _lookup_fields(
+    *,
+    concept: Concept,
+    kind: str,
+    lens: Mapping[str, str] | None,
+    context_key: str,
+    prompt_version: str,
+) -> dict[str, object]:
     return {
         "concept": concept,
         "kind": kind,
@@ -34,16 +45,16 @@ def _lookup_fields(*, concept, kind, lens, context_key, prompt_version):
 @transaction.atomic
 def create_variant(
     *,
-    concept,
-    kind,
-    lens,
-    title,
-    body,
-    context_key="",
-    prompt_version=PROMPT_VERSION,
-    model=DEFAULT_MODEL,
-    citations=None,
-):
+    concept: Concept,
+    kind: str,
+    lens: Mapping[str, str] | None,
+    title: str,
+    body: str,
+    context_key: str = "",
+    prompt_version: str = PROMPT_VERSION,
+    model: str = DEFAULT_MODEL,
+    citations: list[dict] | None = None,
+) -> ContentVariant:
     return ContentVariant.objects.create(
         **_lookup_fields(
             concept=concept,
@@ -64,16 +75,16 @@ def create_variant(
 @transaction.atomic
 def get_or_create_variant(
     *,
-    concept,
-    kind,
-    lens,
-    title,
-    body,
-    context_key="",
-    prompt_version=PROMPT_VERSION,
-    model=DEFAULT_MODEL,
-    citations=None,
-):
+    concept: Concept,
+    kind: str,
+    lens: Mapping[str, str] | None,
+    title: str,
+    body: str,
+    context_key: str = "",
+    prompt_version: str = PROMPT_VERSION,
+    model: str = DEFAULT_MODEL,
+    citations: list[dict] | None = None,
+) -> tuple[ContentVariant, bool]:
     lookup = _lookup_fields(
         concept=concept,
         kind=kind,
@@ -101,7 +112,9 @@ def get_or_create_variant(
 
 
 @transaction.atomic
-def record_concept_link(parent, child, kind):
+def record_concept_link(
+    parent: Concept, child: Concept, kind: str
+) -> ConceptLink:
     link, created = ConceptLink.objects.get_or_create(
         parent=parent, child=child, kind=kind
     )
@@ -114,13 +127,13 @@ def record_concept_link(parent, child, kind):
 @transaction.atomic
 def resolve_variant(
     *,
-    text,
-    kind,
-    lens,
-    context_key="",
-    prompt_version=PROMPT_VERSION,
-    kind_hint=None,
-):
+    text: str,
+    kind: str,
+    lens: Mapping[str, str] | None,
+    context_key: str = "",
+    prompt_version: str = PROMPT_VERSION,
+    kind_hint: str | None = None,
+) -> tuple[Concept, LookupResult]:
     concept = upsert_concept(text, kind_hint=kind_hint)
     result = find_variant(
         concept=concept,

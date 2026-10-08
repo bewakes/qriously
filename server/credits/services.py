@@ -1,7 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from django.db import transaction
 
 from .errors import InsufficientCredits
 from .models import CreditEntry, EntryType, Reason, Wallet
+
+if TYPE_CHECKING:
+    from accounts.models import User
+    from telemetry.models import RequestLog
 
 UPDATE_FIELDS = [
     "balance",
@@ -12,23 +20,30 @@ UPDATE_FIELDS = [
 ]
 
 
-def provision_wallet(user):
+def provision_wallet(user: User) -> Wallet:
     wallet, _ = Wallet.objects.get_or_create(user=user)
     return wallet
 
 
-def get_wallet(user):
+def get_wallet(user: User) -> Wallet:
     return Wallet.objects.get(user=user)
 
 
-def _existing(idempotency_key):
+def _existing(idempotency_key: str | None) -> CreditEntry | None:
     if not idempotency_key:
         return None
     return CreditEntry.objects.filter(idempotency_key=idempotency_key).first()
 
 
 @transaction.atomic
-def grant(wallet, amount, reason, idempotency_key=None, metadata=None, request=None):
+def grant(
+    wallet: Wallet,
+    amount: int,
+    reason: str,
+    idempotency_key: str | None = None,
+    metadata: dict | None = None,
+    request: RequestLog | None = None,
+) -> CreditEntry:
     if amount <= 0:
         raise ValueError("grant amount must be positive")
     wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
@@ -50,7 +65,14 @@ def grant(wallet, amount, reason, idempotency_key=None, metadata=None, request=N
 
 
 @transaction.atomic
-def spend(wallet, amount, reason, idempotency_key=None, metadata=None, request=None):
+def spend(
+    wallet: Wallet,
+    amount: int,
+    reason: str,
+    idempotency_key: str | None = None,
+    metadata: dict | None = None,
+    request: RequestLog | None = None,
+) -> CreditEntry:
     if amount < 0:
         raise ValueError("spend amount must not be negative")
     wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
@@ -75,13 +97,13 @@ def spend(wallet, amount, reason, idempotency_key=None, metadata=None, request=N
 
 @transaction.atomic
 def refund(
-    wallet,
-    amount,
-    reason=Reason.FAILED_GENERATION,
-    idempotency_key=None,
-    metadata=None,
-    request=None,
-):
+    wallet: Wallet,
+    amount: int,
+    reason: str = Reason.FAILED_GENERATION,
+    idempotency_key: str | None = None,
+    metadata: dict | None = None,
+    request: RequestLog | None = None,
+) -> CreditEntry:
     if amount <= 0:
         raise ValueError("refund amount must be positive")
     wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)

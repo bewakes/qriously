@@ -1,14 +1,17 @@
+from __future__ import annotations
+
+from django.http import HttpRequest
 from rest_framework.authentication import BaseAuthentication, get_authorization_header
 from rest_framework.exceptions import AuthenticationFailed
 
-from .models import DeviceSession
+from .models import DeviceSession, User
 from .policies import hash_token
 
 
 class DeviceTokenAuthentication(BaseAuthentication):
     keyword = "Bearer"
 
-    def authenticate(self, request):
+    def authenticate(self, request: HttpRequest) -> tuple[User, DeviceSession] | None:
         header = get_authorization_header(request).split()
         if not header or header[0].lower() != self.keyword.lower().encode():
             return None
@@ -28,5 +31,5 @@ class DeviceTokenAuthentication(BaseAuthentication):
 
         return (session.user, session)
 
-    def authenticate_header(self, request):
+    def authenticate_header(self, request: HttpRequest) -> str:
         return self.keyword

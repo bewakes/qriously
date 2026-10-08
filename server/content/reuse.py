@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from core.constants import PROMPT_VERSION
 
-from .models import ContentVariant, LookupLayer
+from .models import Concept, ContentVariant, LookupLayer
 
 
 @dataclass(frozen=True)
@@ -11,18 +11,18 @@ class LookupResult:
     layer: str
 
     @property
-    def hit(self):
+    def hit(self) -> bool:
         return self.variant is not None
 
 
 def find_variant(
     *,
-    concept,
-    kind,
-    lens_bucket,
-    context_fingerprint="",
-    prompt_version=PROMPT_VERSION,
-):
+    concept: Concept,
+    kind: str,
+    lens_bucket: str,
+    context_fingerprint: str = "",
+    prompt_version: str = PROMPT_VERSION,
+) -> LookupResult:
     candidates = ContentVariant.objects.filter(
         concept=concept,
         kind=kind,
