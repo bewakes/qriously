@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from django.db import transaction
+from django.db import connection, transaction
 
 from content.models import ContentVariant
 from core.constants import lens_bucket as make_lens_bucket
@@ -68,12 +68,21 @@ def create_node(
 
 
 def descendant_ids(node: Node) -> list[UUID]:
-    """Return the ids of ``node`` and every node beneath it.
-
-    Traverses the subtree rooted at ``node`` over ``Node.parent`` and includes
-    ``node`` itself. Order does not matter to callers.
+    """Return the ids of ``node`` and every node beneath it (recursive CTE)."""
+    table = Node._meta.db_table
+    sql = f"""
+        WITH RECURSIVE subtree AS (
+            SELECT id FROM {table} WHERE id = %s
+            UNION ALL
+            SELECT child.id
+            FROM {table} AS child
+            JOIN subtree ON child.parent_id = subtree.id
+        )
+        SELECT id FROM subtree
     """
-    raise NotImplementedError("descendant_ids is yours to implement")
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [node.id])
+        return [row[0] for row in cursor.fetchall()]
 
 
 @transaction.atomic
