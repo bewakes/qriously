@@ -27,8 +27,7 @@ FAMILIARITY_GUIDANCE = {
         "the first time it appears."
     ),
     "expert": (
-        "Assume an expert reader; use precise terminology and skip basic "
-        "definitions."
+        "Assume an expert reader; use precise terminology and skip basic definitions."
     ),
 }
 
@@ -64,8 +63,7 @@ def build_system_prompt(lens, kind):
     """Return the lens- and kind-aware system prompt for a generation request."""
     lens = normalize_lens(lens)
     sections = [
-        "You are Qriously, an explanation engine inside a branching "
-        "learning reader.",
+        "You are Qriously, an explanation engine inside a learning reader.",
         KIND_GUIDANCE.get(kind, KIND_GUIDANCE["root"]),
         FAMILIARITY_GUIDANCE[lens["familiarity"]],
         DEPTH_GUIDANCE[lens["depth"]],
