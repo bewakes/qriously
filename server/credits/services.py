@@ -6,13 +6,11 @@ from django.db import transaction
 
 from content.models import LookupLayer
 from core.constants import DEFAULT_MODEL
-from telemetry.services import (  # noqa: F401  (used by record_generation)
-    resolve_vendor_cost,
-)
+from telemetry.services import resolve_vendor_cost
 
 from .errors import InsufficientCredits
 from .models import CreditEntry, EntryType, Reason, UsageEvent, Wallet
-from .policies import price as compute_price  # noqa: F401  (used by record_generation)
+from .policies import price as compute_price
 
 if TYPE_CHECKING:
     from accounts.models import User
@@ -157,4 +155,36 @@ def record_generation(
     free — and records the vendor cost separately (``None`` on a cache hit,
     when no LLM call happens). Returns the created UsageEvent.
     """
-    raise NotImplementedError
+    cost = compute_price(kind, depth, cache_hit)
+    reason = Reason.CACHE_REUSE if cache_hit else Reason.GENERATION
+    spend(
+        wallet,
+        cost,
+        reason,
+        idempotency_key=f"generation:{request.id}",
+        request=request,
+        metadata={"kind": kind, "depth": depth, "cache_hit": cache_hit},
+    )
+    if cache_hit:
+        tokens_in = None
+        tokens_out = None
+        vendor_cost = None
+    else:
+        vendor_cost = resolve_vendor_cost(model, tokens_in, tokens_out)
+    return UsageEvent.objects.create(
+        wallet=wallet,
+        request=request,
+        thread=thread,
+        node=node,
+        content_variant=content_variant,
+        kind=kind,
+        lens_bucket=lens_bucket,
+        cache_hit=cache_hit,
+        lookup_layer=lookup_layer,
+        cost=cost,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        vendor_cost_micros=vendor_cost,
+        latency_ms=latency_ms,
+        model=model,
+    )

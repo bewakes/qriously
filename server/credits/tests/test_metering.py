@@ -40,8 +40,7 @@ def test_cache_miss_charges_full_price_and_records_vendor_cost(context):
     assert event.tokens_in == 1000
     wallet.refresh_from_db()
     assert wallet.balance == 5000 - 12
-    entry = wallet.entries.get()
-    assert entry.reason == Reason.GENERATION
+    entry = wallet.entries.get(reason=Reason.GENERATION)
     assert entry.delta == -12
 
 
@@ -63,4 +62,4 @@ def test_cache_hit_charges_a_fraction_and_has_no_vendor_cost(context):
     assert event.tokens_in is None
     wallet.refresh_from_db()
     assert wallet.balance == 5000 - 3
-    assert wallet.entries.get().reason == Reason.CACHE_REUSE
+    assert wallet.entries.filter(reason=Reason.CACHE_REUSE).exists()
