@@ -5,6 +5,8 @@ Pure module: no Django, no I/O, no vendor SDK. It only turns
 unit-testable and the same on every request.
 """
 
+from core.constants import normalize_lens
+
 ANCHOR_RULE = (
     "Wrap between 3 and 6 short, self-contained concepts in the answer with "
     "double asterisks, like **Rayleigh scattering**. These markers are "
@@ -18,32 +20,61 @@ TRUST_RULE = (
     "reference."
 )
 
+FAMILIARITY_GUIDANCE = {
+    "new": "Assume no prior knowledge; avoid jargon and define any term you use.",
+    "basics": (
+        "Assume a curious beginner; use everyday language and explain jargon "
+        "the first time it appears."
+    ),
+    "expert": (
+        "Assume an expert reader; use precise terminology and skip basic "
+        "definitions."
+    ),
+}
+
+DEPTH_GUIDANCE = {
+    "quick": "Be brief: two or three sentences covering one idea.",
+    "solid": "Give a solid, self-contained answer of a few short paragraphs.",
+    "deep": "Go deep: cover mechanism, nuance and edge cases in detail.",
+}
+
+STYLE_GUIDANCE = {
+    "plain": "Write in plain, direct prose.",
+    "analogy": "Lead with one concrete analogy and tie the explanation back to it.",
+    "technical": "Write precisely and technically, using exact terms.",
+}
+
+GOAL_GUIDANCE = {
+    "curious": "Satisfy curiosity: make the why vivid and interesting.",
+    "project": "Be practical: emphasise what to do and how to apply it.",
+    "exam": "Be exam-focused: surface definitions and points likely to be tested.",
+}
+
+KIND_GUIDANCE = {
+    "root": "Answer the reader's opening question.",
+    "dive": "Explain the highlighted phrase in its own right, in context.",
+    "eli5": "Explain it as you would to a bright five-year-old.",
+    "example": "Explain mainly through concrete examples.",
+    "define": "Give a short, precise definition.",
+    "ask": "Answer the reader's follow-up question about the passage.",
+}
+
 
 def build_system_prompt(lens, kind):
-    """Return the system prompt for a generation request.
-
-    TODO(you): compose and return the system prompt string.
-
-    Contract:
-    - Normalize ``lens`` with ``core.constants.normalize_lens`` and turn each
-      of the four dimensions into guidance:
-        * familiarity -> how much prior knowledge to assume
-          (``new`` | ``basics`` | ``expert``)
-        * depth       -> how long and detailed the answer should be
-          (``quick`` | ``solid`` | ``deep``)
-        * style       -> the voice to use
-          (``plain`` | ``analogy`` | ``technical``)
-        * goal        -> how to frame the answer
-          (``curious`` | ``project`` | ``exam``)
-    - Tailor the framing to ``kind``
-      (``root`` | ``dive`` | ``eli5`` | ``example`` | ``define`` | ``ask``).
-    - Include ``ANCHOR_RULE`` and ``TRUST_RULE`` verbatim.
-    - Be deterministic: same ``(lens, kind)`` -> same string.
-
-    See ``generation/tests/test_prompts.py`` for the exact behaviors expected;
-    ``pytest generation`` should go green when this is implemented.
-    """
-    raise NotImplementedError("build_system_prompt is yours to implement")
+    """Return the lens- and kind-aware system prompt for a generation request."""
+    lens = normalize_lens(lens)
+    sections = [
+        "You are Qriously, an explanation engine inside a branching "
+        "learning reader.",
+        KIND_GUIDANCE.get(kind, KIND_GUIDANCE["root"]),
+        FAMILIARITY_GUIDANCE[lens["familiarity"]],
+        DEPTH_GUIDANCE[lens["depth"]],
+        STYLE_GUIDANCE[lens["style"]],
+        GOAL_GUIDANCE[lens["goal"]],
+        ANCHOR_RULE,
+        TRUST_RULE,
+    ]
+    return "\n".join(sections)
 
 
 def build_user_prompt(*, text, kind, context=None):
