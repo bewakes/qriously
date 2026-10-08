@@ -1,9 +1,4 @@
-"""Decode OpenAI-compatible streaming payloads.
-
-Pure module: no Django, no I/O. The HTTP/SSE framing lives in
-``deepseek.py``; this module only knows the JSON shape of a chat-completion
-chunk, which is what makes it easy to unit test.
-"""
+"""Decode OpenAI-compatible streaming payloads (pure: no Django, no I/O)."""
 
 from typing import TypedDict
 
@@ -48,8 +43,6 @@ def extract_data(line: str) -> str | None:
 def decode_chunk(payload: ChatCompletionChunk) -> StreamChunk | None:
     """Map one parsed chat-completion payload to a ``StreamChunk`` or ``None``.
 
-    TODO(you): implement.
-
     Contract:
     - ``payload`` is a :class:`ChatCompletionChunk` (a decoded JSON object).
     - Read delta text from ``choices[0]["delta"]["content"]`` and the finish
@@ -62,8 +55,25 @@ def decode_chunk(payload: ChatCompletionChunk) -> StreamChunk | None:
     - Return ``None`` when the payload carries nothing (no text, no finish
       reason, no usage) so callers can skip it.
     - Be tolerant of missing keys; never raise on a partial payload.
-
-    See ``generation/tests/test_sse.py``; ``pytest generation`` goes green once
-    this and the client tests pass.
     """
-    raise NotImplementedError("decode_chunk is yours to implement")
+    delta: Delta = {}
+    finish_reason: str | None = None
+    choices = payload.get("choices") or []
+    if choices:
+        choice = choices[0]
+        delta = choice.get("delta") or {}
+        finish_reason = choice.get("finish_reason")
+
+    usage: Usage = payload.get("usage") or {}
+    tokens_in = usage.get("prompt_tokens")
+    tokens_out = usage.get("completion_tokens")
+    text = delta.get("content") or ""
+
+    if not text and finish_reason is None and tokens_in is None and tokens_out is None:
+        return None
+    return StreamChunk(
+        text=text,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        finish_reason=finish_reason,
+    )
