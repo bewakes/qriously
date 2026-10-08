@@ -155,6 +155,7 @@ function showConnection(mode) {
 function errorKind(err) {
   if (err && err.status === 402) return "credits";
   if (err && err.status === 422) return "blocked";
+  if (err && err.code) return "upstream";
   return "offline";
 }
 
@@ -163,7 +164,8 @@ function renderNodeError(node, err) {
   const messages = {
     credits: "You're out of credits for now.",
     blocked: "I can't help with that one.",
-    offline: "Couldn't reach an answer. Check your connection and try again.",
+    upstream: "The answer service couldn't respond just now.",
+    offline: "Couldn't reach the server. Check your connection and try again.",
   };
   node.bodyEl.innerHTML = `
     <div class="node-error" data-kind="${kind}">
