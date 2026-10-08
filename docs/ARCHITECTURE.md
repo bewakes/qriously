@@ -81,9 +81,10 @@ The lens is four enums (defaults from the spec):
   (e.g. `basics:solid:plain:curious`). 3×3×3×4 = 108 buckets. This is the
   index key. It is what makes "same content, similar lens" cheap to find.
 - **`lens_vector`** — a small fixed-order numeric encoding of the same enums,
-  stored beside an embedding so a semantic layer can weight distance per
-  dimension (style and depth matter more to wording than goal does). Not used
-  for the MVP lookup; stored now so no migration is needed later.
+  so a semantic layer can weight distance per dimension (style and depth matter
+  more to wording than goal does). It is model-independent, so it is stored now;
+  embeddings and the `pgvector` index arrive with the semantic layer. Not used
+  for the MVP lookup.
 - The lens is snapshotted **per node**, because the spec allows mid-session
   re-tuning ("re-tunes subsequent branches; does not rewrite what's read").
 
@@ -105,14 +106,15 @@ ambiguous spans stay context-sensitive.
 | Backend | **Django 5 + DRF** | Batteries-included ORM/migrations/admin/auth; fast to build correctly. |
 | API style | REST + **SSE** for streaming | SSE is one-directional and ideal for token streams; simpler than WebSockets. |
 | Runtime | **ASGI (uvicorn/daphne)** | Long-lived streaming responses and async DeepSeek calls (`httpx`). |
-| DB | **PostgreSQL + pgvector** | Relational graph + transactional ledger + vector index in one store. |
+| DB | **PostgreSQL** (+ **pgvector** when the semantic layer lands) | Relational graph + transactional ledger now; vector index added with embeddings in one store. |
 | LLM | **DeepSeek** (`deepseek-flash` default, configurable; OpenAI-compatible) | Requested; streaming support. Key stays server-side. Model id is a config constant. |
 | Frontend | **Vanilla ES modules + component layer** | Honors the no-build ethos; reusable components + CSS-token themes. |
 | Local dev | **docker-compose** (Postgres/pgvector) | One-command parity; no external services needed. |
 
 Python dependencies (indicative): `django`, `djangorestframework`,
-`django-cors-headers`, `psycopg[binary]`, `pgvector`, `httpx`, `dj-database-url`,
-`python-dotenv`; dev: `pytest`, `pytest-django`, `ruff`.
+`django-cors-headers`, `psycopg[binary]`, `httpx`, `dj-database-url`,
+`python-dotenv`; dev: `pytest`, `pytest-django`, `ruff`. (`pgvector` returns with
+the semantic layer.)
 
 ## 5. Backend layout & layering
 
@@ -337,7 +339,8 @@ one `RequestLog` per metered call including vendor cost; SSE; the frontend wired
 to the API with the mock as fallback; admin + tests.
 
 **Out (designed-for, not built):** live Stripe/subscriptions; semantic embedding
-lookup (schema-ready); real moderation policies (interface + allow-all only),
+lookup (`lens_vector` stored now; embeddings + pgvector arrive with it); real
+moderation policies (interface + allow-all only),
 retrieval-grounded citations; prefetch; cost-analytics dashboard (data captured,
 no UI); collaboration/sharing; spaced repetition; the spark map.
 
@@ -366,8 +369,9 @@ no UI); collaboration/sharing; spaced repetition; the spark map.
   graph that **references** variants. Reuse is a reference, not a copy; the user
   graph is a DAG.
 - **A3:** Lens is encoded as a discretized `lens_bucket` string (the index key)
-  plus a stored `lens_vector` and embedding for a future semantic layer; lookup
-  is exact → broadened (drop context) → semantic (later) → generate.
+  plus a stored, model-independent `lens_vector`; embeddings + pgvector arrive
+  with the semantic layer. Lookup is exact → broadened (drop context) → semantic
+  (later) → generate.
 - **A4:** Credits are an append-only ledger of integer micro-credits with a
   transactional reserve/settle around each generation; cache hits are
   discounted. Payment providers are pluggable but not wired in the MVP.

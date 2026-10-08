@@ -7,6 +7,8 @@ PURE_FILES = [
     "accounts/policies.py",
     "credits/policies.py",
     "telemetry/policies.py",
+    "content/text.py",
+    "content/seeds.py",
     "core/constants.py",
 ]
 PURE_DIRS = ["lenses", "safety"]

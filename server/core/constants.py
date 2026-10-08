@@ -59,3 +59,14 @@ def normalize_lens(lens):
 def lens_bucket(lens):
     lens = normalize_lens(lens)
     return ":".join(lens[dim] for dim in ("familiarity", "depth", "style", "goal"))
+
+
+def lens_vector(lens):
+    lens = normalize_lens(lens)
+    vector = []
+    for dim in ("familiarity", "depth", "style", "goal"):
+        values = LENS_DIMENSIONS[dim]
+        index = values.index(lens[dim])
+        last = len(values) - 1
+        vector.append(0.0 if last == 0 else round(2 * index / last - 1, 6))
+    return vector

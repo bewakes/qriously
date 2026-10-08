@@ -164,7 +164,6 @@ The canonical "what is being explained".
 | `key` | text, unique | `normalize(text)` — lower, strip punctuation, collapse ws |
 | `text` | text | display form (first seen) |
 | `kind_hint` | enum, null | `question` · `entity` · `phrase` · `term` |
-| `embedding` | vector(1536), null | populated when semantic layer lands |
 | `created_at` | timestamptz | |
 
 ### `ContentVariant` (immutable, reused)
@@ -183,7 +182,6 @@ One generated body for a specific audience/context. This is the reusable unit.
 | `body` | text | markdown with `**anchor**` markers |
 | `citations` | jsonb, default [] | `unverified` until real retrieval |
 | `est_read_seconds` | int | computed server-side |
-| `embedding` | vector(1536), null | context embedding for semantic lookup |
 | `model` | text | producer model |
 | `created_at` | timestamptz | |
 
@@ -191,8 +189,10 @@ One generated body for a specific audience/context. This is the reusable unit.
 prompt_version)`. Exact lookup = this tuple. Broadened = drop
 `context_fingerprint`. Never `UPDATE` a variant; ship a new one.
 
-Indexes: unique tuple above; HNSW on `embedding` (when filled); btree on
-`(concept, kind, lens_bucket)`.
+Indexes: unique tuple above; btree on `(concept, kind, lens_bucket)`. The
+`pgvector` extension, embedding columns and an HNSW index are added with the
+deferred semantic layer (lookup layer 3), keyed to the chosen embedding model's
+dimension — `lens_vector` is kept now because it is model-independent.
 
 ### `ConceptLink` (passive knowledge graph)
 Records reachability discovered as users branch.

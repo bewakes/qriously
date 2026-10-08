@@ -58,18 +58,21 @@ and vendor cost recorded separately; tests green.
 
 ## Phase 2 — Content layer & lens index
 
-The reuse engine, still without the LLM.
+The reuse engine, still without the LLM. **Status: complete.** New `content`
+app (`Concept` / `ContentVariant` / `ConceptLink`); pure text helpers in
+`content/text.py`; lookup in `content/reuse.py`; use cases in
+`content/services.py`; `python manage.py seed_content` seeds demonstrable hits.
 
-- `Concept` normalization + upsert; `ContentVariant` with unique-lens tuple,
-  `lens_bucket`, `lens_vector`, `context_fingerprint`, `prompt_version`.
-- `content.reuse.find_variant()` implementing exact → broadened lookup.
-- `ConceptLink` recorded when a branch resolves.
-- Unit tests for normalization, bucketing, exact/broadened hits, and
-  immutability (new prompt version never mutates old rows).
-- Seed a few `ContentVariant`s so hits are demonstrable before DeepSeek.
+- [x] `Concept` normalization + upsert; `ContentVariant` with unique-lens tuple,
+      `lens_bucket`, `lens_vector`, `context_fingerprint`, `prompt_version`.
+- [x] `content.reuse.find_variant()` implementing exact → broadened lookup.
+- [x] `ConceptLink` recorded when a branch resolves.
+- [x] Unit tests for normalization, bucketing, exact/broadened hits, and
+      immutability (new prompt version never mutates old rows).
+- [x] Seed a few `ContentVariant`s so hits are demonstrable before DeepSeek.
 
 **Done when:** given `(concept, kind, lens)`, the service deterministically
-returns an existing variant or a clean miss, with tests.
+returns an existing variant or a clean miss, with tests. ✅
 
 ---
 
