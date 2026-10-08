@@ -13,7 +13,7 @@ from core.constants import (
 
 from .base import StreamChunk
 from .errors import LLMError
-from .sse import DONE_SENTINEL, decode_chunk, extract_data
+from .sse import DONE_SENTINEL, ChatCompletionChunk, decode_chunk, extract_data
 
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 
@@ -90,7 +90,8 @@ class DeepSeekClient:
                         continue
                     if data == DONE_SENTINEL:
                         break
-                    chunk = decode_chunk(json.loads(data))
+                    payload: ChatCompletionChunk = json.loads(data)
+                    chunk = decode_chunk(payload)
                     if chunk is not None:
                         yield chunk
         except httpx.TimeoutException as exc:
