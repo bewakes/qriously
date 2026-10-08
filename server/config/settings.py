@@ -27,10 +27,11 @@ INSTALLED_APPS = [
     "corsheaders",
     "core",
     "accounts",
-    "credits",
-    "telemetry",
     "content",
     "learning",
+    "credits",
+    "telemetry",
+    "generation",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
