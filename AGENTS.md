@@ -29,8 +29,8 @@ qriously/
 │   ├── styles.css           # theme tokens + component styles
 │   ├── content.js           # mock node graph + generator (demo/offline "AI")
 │   └── script.js            # app engine (state, rendering, interaction)
-└── server/             # (planned) Django + DRF backend: accounts, credits,
-                        # content, learning, safety, generation, telemetry
+└── server/             # Django + DRF backend: core, accounts, credits,
+                        # telemetry, content, learning, generation, safety
 ```
 
 Landing folders are independent, self-contained pages. `app/` is the product
@@ -44,9 +44,11 @@ frontend. Read `app/INTERACTION-SPEC.md` before changing the app, and
   session (questions, dives and asides), handy for screenshots/manual testing.
   `?demo=1` uses the offline mock and needs no server.
 - Serve anything: `python3 -m http.server 8000` (app at `/app/`).
-- Backend (once built, Phase 1+): `docker compose up -d db` then
-  `python server/manage.py runserver` (or the ASGI server) — see
-  `docs/PLAN.md`.
+- Backend: `cd server && docker compose up -d db`, then
+  `python manage.py migrate && python manage.py seed_content`, then
+  `python manage.py runserver` (or `uvicorn config.asgi:application`) — see
+  `docs/PLAN.md`. Checks: `ruff check .` and `pytest` (needs the Postgres
+  container). `DEEPSEEK_API_KEY` in `server/.env` enables real generation.
 
 ## The app (current model — v8)
 
@@ -106,8 +108,11 @@ changed several times: margin rail → list+window → inline action sections �
 
 ### Known limitations / next steps
 
-- Content is mock; no LLM, persistence, accounts, or credits. `estReadSeconds`
-  is fake. The backend build is planned in `docs/PLAN.md` (proposed).
+- The app still runs on the mock content (`content.js`); it is not yet wired to
+  the backend. The backend itself exists and is being built out in
+  `docs/PLAN.md` (Phase 3 in progress: content layer, learning graph, generation
+  orchestration and metering are in; the HTTP/SSE surface and the app wiring are
+  next).
 - Landing and app are not yet connected (landing submit is visual-only).
 - Mobile: the actions rail stacks below the reading sheet; the composer stays
   docked. Not yet a native bottom-sheet.
@@ -130,7 +135,7 @@ changed several times: margin rail → list+window → inline action sections �
 - When the app's interaction model changes, update
   `app/INTERACTION-SPEC.md`'s Decision log in the same change.
 
-### Backend (planned — `server/`)
+### Backend (`server/`)
 
 - Django 5 + DRF on Postgres/pgvector; ASGI; DeepSeek behind
   `generation/llm` only. Read `docs/ARCHITECTURE.md`, `docs/DATA-MODEL.md`,

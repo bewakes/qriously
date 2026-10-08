@@ -78,34 +78,41 @@ returns an existing variant or a clean miss, with tests. ✅
 
 ## Phase 3 — Generation, streaming, metering (the spine)
 
-- `generation.llm`: OpenAI-compatible DeepSeek streaming client behind an
-  interface; `DEEPSEEK_API_KEY` from env; `DEFAULT_MODEL=deepseek-flash`; timeout
-  + retry policy.
-- Prompt builder: system prompt parameterized by lens; instructs bounded length
-  (depth), style (plain/analogy/technical), assumed knowledge (familiarity),
-  framing (goal); instructs `**anchor**` markers for branchable phrases; no
-  fabricated "verified sources".
-- Orchestration: **open `RequestLog` → screen (allow-all) → resolve concept →
-  lookup → hold credits → (hit: reuse | miss: stream) → persist variant + node →
-  settle/debit → `UsageEvent`**, all referencing the request.
-- `GenerationJob` created only on a miss; `tokens_in/out` converted to
-  `vendor_cost_micros` via `ModelPrice` and stored separately from the credits
-  charged.
-- **Cache hits are charged** `CACHE_HIT_RATIO × price` (never free).
-- SSE endpoints (`POST /generate`, `GET /generate/{job_id}/stream`) with the
-  event shape in `API.md` (including `request_id`, `vendor_cost_micros`); cached
-  hits replay through the same sequence.
-- Screening blocks → `422`, request `blocked`, nothing charged; failures void the
-  hold and emit `error`; idempotency key dedupes retries.
-- `POST /threads`, `POST /threads/{id}/nodes`, `GET /threads/{id}`,
-  `PATCH /nodes/{id}`, `DELETE /nodes/{id}`, notes CRUD, `GET .../outline`.
-- Tests: metering math, fractional cache-hit cost, refund-on-failure,
-  idempotent replay, vendor-cost calculation, screening block path, graph
-  snapshot round-trip, subtree removal.
+**Status: in progress.** The LLM client, prompt builder, metering and the
+generation orchestration service are in; the HTTP/SSE surface is next. The
+`learning` app (Thread/Span/Node/Note) and the metering models
+(`UsageEvent`, `GenerationJob`) have landed.
+
+- [x] `generation.llm`: OpenAI-compatible DeepSeek streaming client behind an
+      `LLMClient` interface; `DEEPSEEK_API_KEY` from env;
+      `DEFAULT_MODEL=deepseek-flash`; timeout + retry policy.
+- [x] Prompt builder parameterized by lens and kind; assumes knowledge
+      (familiarity), bounds length (depth), sets voice (style) and framing
+      (goal); instructs `**anchor**` markers; no fabricated "verified sources".
+- [x] Orchestration split in two: `prepare_generation` (**open `RequestLog` →
+      screen (allow-all) → resolve concept → exact/broadened lookup →
+      price/guard credits → enqueue `GenerationJob`**) and `stream_generation`
+      (**hit: replay | miss: stream → persist variant + node → settle via
+      `record_generation` → close request**). Failures mark the job/node `error`
+      and charge nothing.
+- [x] `GenerationJob` (`generation`) and `UsageEvent` (`credits`) bookkeeping;
+      `tokens_in/out` → `vendor_cost_micros` (via the constant `MODEL_PRICE`)
+      stored separately from credits charged; every metered call a `RequestLog`.
+- [x] **Cache hits charged** `CACHE_HIT_RATIO × price` (never free).
+- [x] Tests: metering math, fractional cache-hit cost, vendor-cost calculation,
+      charge-on-success (no charge on upstream failure), orchestration
+      hit/miss/error, subtree removal.
+- [ ] SSE endpoints (`POST /generate`, `GET /generate/{job_id}/stream`) with the
+      event shape in `API.md`; cached hits replay through the same sequence.
+- [ ] `POST /threads`, `POST /threads/{id}/nodes`, `GET /threads/{id}`,
+      `PATCH /nodes/{id}`, `DELETE /nodes/{id}`, notes CRUD, `GET .../outline`.
+- [ ] Remaining tests: idempotent replay, screening-block path, graph snapshot
+      round-trip.
 
 **Done when:** curl can start a thread, stream a real DeepSeek answer, create a
 nested dive, and show the balance decremented — and a repeat request hits the
 cache and is charged only the small fraction (with `vendor_cost_micros` null).
+**Not yet: the HTTP surface above.**
 
 ---
 

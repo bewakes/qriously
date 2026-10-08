@@ -282,8 +282,10 @@ Removing a node removes its subtree (thread edges) only — never variants.
 ## 5. Generation bookkeeping (`generation`)
 
 ### `GenerationJob`
-Reconciles async streaming with idempotency and metering. Only created on a
-cache **miss** (hits never need a job).
+Reconciles async streaming with idempotency and metering. Created by
+`prepare_generation` for a miss and, in the MVP, **also for a cache hit** so
+`GET /generate/{job_id}/stream` can replay the resolved variant without
+re-resolving or re-charging. (Dropping hit jobs is a later optimization.)
 
 | Field | Type | Notes |
 |---|---|---|
@@ -291,11 +293,16 @@ cache **miss** (hits never need a job).
 | `request` | FK RequestLog, null | owning request |
 | `wallet` | FK Wallet | |
 | `thread` | FK Thread | |
-| `node` | FK Node, null | set when the node row is created |
+| `node` | FK Node, null | the queued node this job fills |
 | `concept` | FK Concept, null | |
 | `kind`, `lens_bucket`, `context_fingerprint` | | lookup inputs |
 | `prompt_version` | text | cache-key version used |
 | `model` | text | e.g. `deepseek-flash` |
+| `messages` | jsonb | the exact prompt sent (replay/debug) |
+| `lens` | jsonb | lens snapshot used for this job |
+| `cost` | bigint | price locked at prepare |
+| `cache_hit` | bool | reused an existing variant |
+| `lookup_layer` | enum | `exact` · `broadened` · `semantic` · `generated` |
 | `idempotency_key` | text, unique | client-supplied |
 | `status` | enum | `pending` · `streaming` · `done` · `error` |
 | `error_code`, `error_message` | text, null | |

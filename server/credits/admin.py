@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CreditEntry, Wallet
+from .models import CreditEntry, UsageEvent, Wallet
 
 
 @admin.register(Wallet)
@@ -34,3 +34,20 @@ class CreditEntryAdmin(admin.ModelAdmin):
         "metadata",
         "created_at",
     ]
+
+
+@admin.register(UsageEvent)
+class UsageEventAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "kind",
+        "cache_hit",
+        "lookup_layer",
+        "cost",
+        "vendor_cost_micros",
+        "model",
+        "created_at",
+    ]
+    list_filter = ["cache_hit", "lookup_layer", "kind", "model"]
+    search_fields = ["id", "wallet__user__email"]
+    readonly_fields = ["id", "created_at"]
