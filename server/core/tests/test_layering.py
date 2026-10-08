@@ -10,6 +10,9 @@ PURE_FILES = [
     "content/text.py",
     "content/seeds.py",
     "generation/prompts.py",
+    "generation/llm/base.py",
+    "generation/llm/errors.py",
+    "generation/llm/sse.py",
     "core/constants.py",
 ]
 PURE_DIRS = ["lenses", "safety"]

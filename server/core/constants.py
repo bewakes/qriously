@@ -2,6 +2,10 @@ DEFAULT_MODEL = "deepseek-flash"
 
 PROMPT_VERSION = "v1"
 
+LLM_TIMEOUT_SECONDS = 60
+LLM_MAX_RETRIES = 2
+LLM_RETRY_BACKOFF_SECONDS = 0.5
+
 MODEL_PRICE = {
     "deepseek-flash": {
         "input_per_1k_micros": 140,
