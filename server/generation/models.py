@@ -1,5 +1,6 @@
 from django.db import models
 
+from content.models import LookupLayer
 from core.models import UUIDModel
 
 
@@ -44,6 +45,13 @@ class GenerationJob(UUIDModel):
     prompt_version = models.CharField(max_length=32)
     model = models.CharField(max_length=64)
     idempotency_key = models.CharField(max_length=255, unique=True)
+    messages = models.JSONField(default=list, blank=True)
+    lens = models.JSONField(default=dict, blank=True)
+    cost = models.BigIntegerField(default=0)
+    cache_hit = models.BooleanField(default=False)
+    lookup_layer = models.CharField(
+        max_length=16, choices=LookupLayer.choices, default=LookupLayer.GENERATED
+    )
     status = models.CharField(
         max_length=16, choices=JobStatus.choices, default=JobStatus.PENDING
     )
