@@ -376,6 +376,16 @@ The visual system is **reading-first**: the prose and the branching structure ca
   offline/demo use. `content.js` remains as that offline adapter behind the same
   `generateRoot`/`generateNode`/`generateAsk` signatures. Every charge is tied to
   a `request_id`; the backend also records vendor LLM cost per request.
+- **v12 (wiring, current):** v11 is implemented without a build step, as two
+  plain globals rather than an `src/` ES-module tree (`file://`-safe, no bundler):
+  `api.js` (client/auth/SSE) and `adapter.js` (api-vs-mock chooser + streaming
+  interface). `content.js` stays the offline mock behind its original signatures.
+  Sections become **shell-first + async**: the card DOM and anchor mark appear
+  immediately and content streams in, so the recursive/nested/anchored behavior is
+  unchanged while the source becomes a stream. Deferred from this phase (logged,
+  not built): the full `src/` component extraction and token split into
+  `theme/tokens.css`; server-side notes and thread-snapshot restore (notes stay
+  local for now); and `[data-skin]` product skins.
 
 ## 21. Implementation map
 
@@ -384,24 +394,39 @@ The visual system is **reading-first**: the prose and the branching structure ca
   `#readingBody` + `#readingSections` for dives, and the `#actions` rail
   containing `#sideList` for asides), the bottom composer, selection `#toolbar`,
   the lens overlay, and the notebook drawer.
+- `api.js` — low-level API client as a plain global (`window.QriouslyAPI`): base
+  URL resolution (`?api=`, same-origin on :8000, else `localhost:8000`), device
+  auth (`POST /auth/device`) with the token persisted in `localStorage`, REST
+  helpers (`me`/`balance`/`post`/`get`), a readiness probe, and the SSE reader
+  (fetch + stream reader; parses `meta`/`token`/`done`/`usage`/`error`).
+- `adapter.js` — the data-source chooser (`window.QriouslyContent`). `init()`
+  picks **api** (auth + balance succeed) or **mock** (`?demo=1`, or the API is
+  unreachable) and reports the mode + balance. `startRoot(question, lens, hooks)`
+  and `streamBranch(context, hooks)` present one streaming interface; hooks are
+  `onToken`/`onMeta`/`onDone`/`onUsage`/`idempotencyKey`. Mock uses `content.js`;
+  api does `POST /threads` / `POST /generate` then the SSE stream. Errors carry
+  `.status` (402 → out-of-credits, 422 → blocked) for the node retry UI.
 - `script.js` — all behavior. `state = { lens, question, nodes, rootId, order,
-  activeId, counter, toolbarContext, marks, notes }`. Entry: `startReader()`
-  (first question) and `addQuestion()` (later questions from the composer).
-  Actions: `createSection()` (routes dives/asks to `diveHost(parent)` and asides
-  to `#sideList`) / `createAsk()` → `registerMark()` → `applyMarks()`. Rail:
-  `renderSide()` / `updateActions()` / `focusSection()`. Sections:
+  activeId, counter, toolbarContext, marks, notes, threadId, credits, ... }`.
+  Entry: `startReader()` (first question; creates the thread via `startRoot`) and
+  `addQuestion()` (later questions from the composer). Sections are **shell-first**:
+  `createSection()` (routes dives/asks to `diveHost(parent)` and asides to
+  `#sideList`) / `createAsk()` build the DOM synchronously, then `fillContent()`
+  streams tokens into `startBodyStream()` and settles title/read-time on `done`.
+  Rail: `renderSide()` / `updateActions()` / `focusSection()`. Sections:
   `toggleSection()` / `removeSection()` (removal walks the graph via
   `descendantIds()`). Anchors/marks in `decorateAnchor()`; toolbar + results menu
   in `showToolbar()` / `renderToolbarResults()` / `performAction()`; trail in
   `renderTrail()` / `rootOf()`; `bloomAt()` is the only remaining
-  experience-layer effect. Lens/theme/notes/composer are here too.
-- `content.js` — the mock generator. `SEED_ROOT.body` is the answer text
-  (`**phrase**` marks curated anchors). `LIBRARY` maps `normalizeKey(phrase)` →
-  `{ dive, eli5, example, define }` bodies. `generateNode(parent, anchor, kind,
-  lens)` returns `{ title, body, citations, estReadSeconds }` and falls back to
-  `synthesize()`; `generateRoot(question, lens)` answers a brand-new question;
-  `generateAsk(parent, anchor, question, lens)` answers a scoped free-text ask.
-  **Swap these functions for a real LLM behind the same signatures.**
+  experience-layer effect. Credits: `setCredits()` / `onGenerationMeta()` /
+  `onGenerationUsage()` (optimistic decrement, reconcile on `usage`, reuse shown);
+  failures render inline via `renderNodeError()` with a retry that reuses the
+  node's idempotency key (`node.idemKey`). Lens/theme/notes/composer are here too.
+- `content.js` — the **offline mock generator** kept behind its original
+  signatures (`generateNode`/`generateRoot`/`generateAsk`, called by
+  `adapter.js`). `SEED_ROOT.body` is the answer text (`**phrase**` marks curated
+  anchors). `LIBRARY` maps `normalizeKey(phrase)` → `{ dive, eli5, example,
+  define }` bodies; `synthesize()` is the fallback.
 - `styles.css` — tokens in `:root` / `html[data-theme="dark|light"]`. Key
   selectors: `.anchor`/`.anchor-icon`, `.action-section`/`.as-*` (dives/asks),
   `.question-section` (questions), `.side-list`/`.side-card` (asides),

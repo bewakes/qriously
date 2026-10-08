@@ -1428,3 +1428,108 @@ a {
     transition-delay: 0s !important;
   }
 }
+
+.credit-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.credit-meter b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.credit-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.credit-meter.low .credit-dot {
+  background: var(--k-example);
+  box-shadow: none;
+}
+
+.credit-meter.empty {
+  border-color: var(--k-note);
+  color: var(--k-note);
+}
+
+.credit-meter.empty b {
+  color: var(--k-note);
+}
+
+.credit-meter.empty .credit-dot {
+  background: var(--k-note);
+  box-shadow: none;
+}
+
+.credit-meter.reused {
+  animation: creditPulse 0.5s var(--ease);
+}
+
+@keyframes creditPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.conn-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.conn-badge.live {
+  color: var(--accent-3);
+  border-color: color-mix(in srgb, var(--accent-3) 40%, transparent);
+}
+
+.node-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 2px;
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+}
+
+.node-error[data-kind="blocked"] p {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.node-retry {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.node-retry:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

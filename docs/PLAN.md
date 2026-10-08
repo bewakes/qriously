@@ -78,10 +78,10 @@ returns an existing variant or a clean miss, with tests. ✅
 
 ## Phase 3 — Generation, streaming, metering (the spine)
 
-**Status: in progress.** The LLM client, prompt builder, metering and the
-generation orchestration service are in; the HTTP/SSE surface is next. The
-`learning` app (Thread/Span/Node/Note) and the metering models
-(`UsageEvent`, `GenerationJob`) have landed.
+**Status: complete.** The LLM client, prompt builder, metering, the generation
+orchestration service and the HTTP/SSE surface are all in. The `learning` app
+(Thread/Span/Node/Note) and the metering models (`UsageEvent`, `GenerationJob`)
+have landed.
 
 - [x] `generation.llm`: OpenAI-compatible DeepSeek streaming client behind an
       `LLMClient` interface; `DEEPSEEK_API_KEY` from env;
@@ -102,43 +102,55 @@ generation orchestration service are in; the HTTP/SSE surface is next. The
 - [x] Tests: metering math, fractional cache-hit cost, vendor-cost calculation,
       charge-on-success (no charge on upstream failure), orchestration
       hit/miss/error, subtree removal.
-- [ ] SSE endpoints (`POST /generate`, `GET /generate/{job_id}/stream`) with the
+- [x] SSE endpoints (`POST /generate`, `GET /generate/{job_id}/stream`) with the
       event shape in `API.md`; cached hits replay through the same sequence.
-- [ ] `POST /threads`, `POST /threads/{id}/nodes`, `GET /threads/{id}`,
+      `generation/api.py` maps `ContentBlocked` → `422` and
+      `InsufficientCredits` → `402` before any spend.
+- [x] `POST /threads`, `POST /threads/{id}/nodes`, `GET /threads/{id}`,
       `PATCH /nodes/{id}`, `DELETE /nodes/{id}`, notes CRUD, `GET .../outline`.
-- [ ] Remaining tests: idempotent replay, screening-block path, graph snapshot
-      round-trip.
+      `learning/api.py` + `learning/services.render_outline`; ownership scoped
+      to the authenticated device.
+- [x] Remaining tests: idempotent replay, screening-block path, graph snapshot
+      round-trip (`generation/tests/test_api.py`, `learning/tests/test_api.py`).
 
 **Done when:** curl can start a thread, stream a real DeepSeek answer, create a
 nested dive, and show the balance decremented — and a repeat request hits the
-cache and is charged only the small fraction (with `vendor_cost_micros` null).
-**Not yet: the HTTP surface above.**
+cache and is charged only the small fraction (with `vendor_cost_micros` null). ✅
 
 ---
 
 ## Phase 4 — Frontend wiring & component extraction
 
-Refactor in place; the DOM result should look identical.
+**Status: in progress.** The app is wired to the API end-to-end (device auth,
+streamed generation, credit meter, inline errors/retry, offline fallback) as two
+plain globals — `app/api.js` and `app/adapter.js` — chosen over an `src/`
+ES-module tree to keep the no-build, offline, `file://`-safe ethos (spec v12).
+The full component extraction and token split are deferred.
 
-- Extract `src/core` (store, dom), `src/api` (client, sse reader, auth),
-  `src/components`, `src/features`; move `content.js` → `src/content/mock.js`.
-- `content/adapter.js` selects API vs mock (`?demo=1`, offline, or `VITE`-less
-  runtime flag).
-- Device auth bootstrap; persist token; `GET /me`.
-- Replace `generateNode`/`generateRoot`/`generateAsk` with API calls; consume
-  SSE and feed the existing `streamInto` path.
-- `CreditMeter` component in the top bar/status line: optimistic decrement,
-  reconcile on `usage`; fractional charges on reuse are shown, not hidden; `402`
-  opens a quiet "out of credits" state; `422` shows a gentle "can't help with
-  that one" without leaking the category.
-- Preserve behavior: anchors/markers/results menu, collapse, trail, notes,
-  reduced-motion, keyboard routes.
-- Theming: split tokens into `theme/tokens.css`; keep `[data-theme]` for
-  dark/light; reserve `[data-skin]` for the landing directions.
-- Error/retry UI per node; offline fallback to mock with an honest status.
+- [x] `api.js` (REST client, device auth + token persistence, SSE reader) and
+      `adapter.js` (API-vs-mock selection, streaming interface); `content.js`
+      stays the mock behind its original signatures.
+- [x] Device auth bootstrap; persist token; `GET /me`/balance on boot.
+- [x] Replace `generateNode`/`generateRoot`/`generateAsk` with adapter calls;
+      consume SSE into the reading path (sections are now shell-first +
+      `startBodyStream()`).
+- [x] `CreditMeter` in the top bar: optimistic decrement, reconcile on `usage`;
+      fractional charges on reuse shown; `402` → quiet out-of-credits state; `422`
+      → gentle "can't help with that one" (no category leaked).
+- [x] Preserve behavior: anchors/markers/results menu, collapse, trail, notes,
+      reduced-motion, keyboard routes.
+- [x] Offline fallback to mock with an honest status ("Offline · sample"); node
+      error/retry UI reusing the node's idempotency key.
+- [ ] Extract `src/core` (store, dom), `src/api`, `src/components`,
+      `src/features`; move `content.js` → `src/content/mock.js`. (Deferred — spec
+      v12; the globals deliver the same outcome without a build step.)
+- [ ] Theming: split tokens into `theme/tokens.css`; reserve `[data-skin]`.
+      (Deferred.)
+- [ ] Server-side notes / thread-snapshot restore. (Deferred; notes stay local.)
 
 **Done when:** the app runs end-to-end against the backend with the same feel;
-`?demo=1` still works with no server.
+`?demo=1` still works with no server. ✅ verified live (device auth → streamed
+generation → fractional cache-hit charges reflected in the meter).
 
 ---
 

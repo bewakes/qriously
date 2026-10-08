@@ -24,10 +24,15 @@
         <span class="brand-tag">Lumen</span>
       </a>
       <div class="topbar-actions">
+        <span class="conn-badge" id="connBadge" hidden></span>
         <button type="button" class="lens-chip" id="lensChip" hidden>
           <span class="lens-chip-label">Lens</span>
           <b id="lensChipText">—</b>
         </button>
+        <span class="credit-meter" id="creditMeter" hidden title="Credits remaining">
+          <span class="credit-dot" aria-hidden="true"></span>
+          <b id="creditValue">—</b>
+        </span>
         <button type="button" class="iconbtn" id="themeBtn" aria-label="Toggle colour theme">◐</button>
         <button type="button" class="iconbtn notes-btn" id="notesBtn">
           Notebook <span class="count" id="noteCount">0</span>
@@ -179,6 +184,8 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="content.js"></script>
+  <script src="api.js"></script>
+  <script src="adapter.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
