@@ -41,6 +41,12 @@ const notesEmpty = $("notesEmpty");
 const noteList = $("noteList");
 const notesExport = $("notesExport");
 const toastEl = $("toast");
+const historyList = $("historyList");
+const historyEmpty = $("historyEmpty");
+const historyMore = $("historyMore");
+const historyBtn = $("historyBtn");
+const historyNew = $("historyNew");
+const historyCollapse = $("historyCollapse");
 
 const KIND_LOC = { dive: "↓", ask: "↓", eli5: "→", example: "→", define: "→", note: "★" };
 const KIND_ORDER = ["dive", "ask", "eli5", "example", "define", "note"];
@@ -60,6 +66,9 @@ const state = {
   threadId: null,
   credits: null,
   creditsKnown: false,
+  threads: [],
+  historyCursor: null,
+  historyDone: true,
 };
 
 const content = window.QriouslyContent;
@@ -500,6 +509,9 @@ function fillContent(node) {
       if (node.isRoot && data.threadId) {
         state.threadId = data.threadId;
         persistThreadId(data.threadId);
+        loadHistory(true);
+      } else {
+        renderHistory();
       }
       applyMarks(node.id);
       updateStatus();
@@ -1053,6 +1065,123 @@ function restoreSession(snapshot) {
   return true;
 }
 
+function relTime(iso) {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (isNaN(then)) return "";
+  const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (secs < 60) return "just now";
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return mins + "m ago";
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  const days = Math.round(hrs / 24);
+  if (days < 30) return days + "d ago";
+  return new Date(iso).toLocaleDateString();
+}
+
+function setHistoryOpen(open) {
+  reader.classList.toggle("history-collapsed", !open);
+  historyBtn.setAttribute("aria-expanded", String(open));
+  try {
+    localStorage.setItem("qriously-history-open", open ? "1" : "0");
+  } catch (e) {}
+}
+
+function renderHistory() {
+  historyList.innerHTML = "";
+  historyEmpty.hidden = state.threads.length > 0;
+  state.threads.forEach((thread) => {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "history-item" + (thread.id === state.threadId ? " current" : "");
+    btn.dataset.id = thread.id;
+    btn.innerHTML = `
+      <span class="hi-title">${escapeHtml(thread.title || "Untitled session")}</span>
+      <span class="hi-meta">${escapeHtml(relTime(thread.updated_at || thread.created_at))}</span>
+    `;
+    btn.addEventListener("click", () => openThread(thread.id));
+    li.appendChild(btn);
+    historyList.appendChild(li);
+  });
+  historyMore.hidden = state.historyDone || state.threads.length === 0;
+}
+
+function loadHistory(reset) {
+  if (reset) {
+    state.threads = [];
+    state.historyCursor = null;
+    state.historyDone = false;
+  }
+  if (state.historyDone && !reset) return Promise.resolve();
+  return content.listThreads(state.historyCursor).then((page) => {
+    const results = (page && page.results) || [];
+    results.forEach((thread) => {
+      if (!state.threads.some((t) => t.id === thread.id)) state.threads.push(thread);
+    });
+    const next = page && page.next;
+    let cursor = null;
+    if (next) {
+      try {
+        cursor = new URL(next, location.origin).searchParams.get("cursor");
+      } catch (e) {
+        cursor = null;
+      }
+    }
+    state.historyCursor = cursor;
+    state.historyDone = !cursor;
+    renderHistory();
+  });
+}
+
+function openThread(id) {
+  if (!id) return;
+  if (id === state.threadId) {
+    setHistoryOpen(true);
+    renderHistory();
+    return;
+  }
+  content.restoreThread(id).then((snapshot) => {
+    if (snapshot && snapshot.nodes && snapshot.nodes.length) {
+      restoreSession(snapshot);
+      toast("Session loaded");
+    } else {
+      toast("Couldn't load that session");
+    }
+    renderHistory();
+  });
+}
+
+function newSession() {
+  state.threadId = null;
+  persistThreadId(null);
+  hideToolbar();
+  state.question = "";
+  state.nodes.clear();
+  state.order = [];
+  state.marks = [];
+  state.notes = [];
+  state.activeId = null;
+  state.rootId = null;
+  readingSections.innerHTML = "";
+  sideList.innerHTML = "";
+  readingBody.innerHTML = "";
+  readingTitle.textContent = "";
+  composerInput.value = "";
+  homeInput.value = "";
+  reader.hidden = true;
+  composer.hidden = true;
+  lensChip.hidden = true;
+  home.hidden = false;
+  renderNotes();
+  updateNoteCount();
+  renderTrail();
+  renderHistory();
+  window.scrollTo({ top: 0, behavior: "auto" });
+  homeInput.focus();
+}
+
 function openLens(question) {
   state.question = question;
   lensQuestion.textContent = "“" + question + "”";
@@ -1215,19 +1344,23 @@ notesBtn.addEventListener("click", () => (notebook.hidden = !notebook.hidden));
 notesClose.addEventListener("click", () => (notebook.hidden = true));
 notesExport.addEventListener("click", exportNotes);
 
-$("newBtn").addEventListener("click", () => {
-  if (reader.hidden) {
-    homeInput.value = "";
-    homeInput.focus();
-  } else {
-    composerInput.value = "";
-    composerInput.focus();
-  }
-});
+$("newBtn").addEventListener("click", newSession);
+historyNew.addEventListener("click", newSession);
+historyCollapse.addEventListener("click", () => setHistoryOpen(false));
+historyBtn.addEventListener("click", () => setHistoryOpen(reader.classList.contains("history-collapsed")));
+historyMore.addEventListener("click", () => loadHistory(false));
 
 initTheme();
 renderNotes();
 updateNoteCount();
+setHistoryOpen((() => {
+  try {
+    return localStorage.getItem("qriously-history-open") !== "0";
+  } catch (e) {
+    return true;
+  }
+})());
+renderHistory();
 
 const params = new URLSearchParams(location.search);
 
@@ -1246,11 +1379,13 @@ content.init().then((info) => {
   if (info.mode === "api") {
     showConnection("api");
     setCredits(info.balance);
+    loadHistory(true);
     const savedThread = readThreadId();
     if (savedThread && !params.has("demo")) {
       content.restoreThread(savedThread).then((snapshot) => {
         if (snapshot && snapshot.nodes && snapshot.nodes.length) restoreSession(snapshot);
         else persistThreadId(null);
+        renderHistory();
       });
     }
   } else {

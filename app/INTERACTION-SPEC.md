@@ -1,6 +1,6 @@
 # Qriously — Immersive Learning App: Interaction Spec
 
-**Status:** Living spec · prototype implemented (`app/index.html`); current interaction is **model v10** (see §20 Decision log). Where this doc and the code differ, **the code is the source of truth** — update the doc in the same change.
+**Status:** Living spec · prototype implemented (`app/index.html`); current interaction is **model v16** (see §20 Decision log). Where this doc and the code differ, **the code is the source of truth** — update the doc in the same change.
 **Surface:** `qriously/app/` (the landing designs are untouched)
 **Scope of this doc:** product concept, interaction model, content model, and MVP plan.
 
@@ -44,6 +44,7 @@ Ask  →  Calibrate  →  Read  →  Branch  →  Nest  →  Save  →  (Compose
 |---|---|
 | Home | The single input. One field, one question. |
 | Calibration lens | One-tap personalization; skippable, editable anytime. |
+| Session history | Collapsible left pane listing past sessions (server-backed); click to restore one. |
 | Reader | Reading column + branch list + trail. The heart of the app. |
 | Composer | A persistent bottom ask box; asking here **appends a new question section** below the current reading (it does not replace the session). |
 | Question section | A new question (from the composer) rendered as a section below the current reading, with its own answer and nested dives. |
@@ -92,24 +93,22 @@ A single card shown immediately after the query. Every field has a sensible defa
 ### 7.1 Layout zones (desktop)
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│ TOP BAR   Qriously   [ lens ▾ ]            [ notes ] [◐] [＋]  │
-├───────────────────────────────────────────────────────────────┤
-│ TRAIL     Question › Rayleigh scattering › violet …            │
-├───────────────────────────────┬───────────────────────────────┤
-│  READING (sheet)              │  WIDER ANGLES                  │
-│                               │  ◆ ELI5  "nitrogen"            │
-│  …answer…                     │  …card, collapsible…           │
-│  3 sources · verified         │  ◆ EXAMPLES  "wavelength"      │
-│                               │  …card, collapsible…           │
-│  │▸ DIVE  "Rayleigh scat…"    │                               │
-│  │  …inline, collapsible…      │                               │
-│  │  │▸ DIVE  "violet"           │                               │
-│  │  │  …nested dive…            │                               │
-├───────────────────────────────┴───────────────────────────────┤
-│ COMPOSER   [ ask a new question…          ] [ Ask ]            │
-│            ≈ 1 min read · 5 actions                            │
-└───────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│ TOP BAR  Qriously  [ lens ▾ ]        [☰] [ notes ] [◐] [＋ new]        │
+├───────────────────────────────────────────────────────────────────────┤
+│ TRAIL    Question › Rayleigh scattering › violet …                     │
+├─────────────┬───────────────────────────────┬─────────────────────────┤
+│ SESSIONS    │  READING (sheet)              │  WIDER ANGLES           │
+│ ● current   │                               │  ◆ ELI5  "nitrogen"     │
+│   sky blue  │  …answer…                     │  …card, collapsible…    │
+│ ○ black     │  · quiet meta line ·          │  ◆ EXAMPLES "wavelength"│
+│   holes     │  │▸ DIVE "Rayleigh scat…"     │  …card, collapsible…    │
+│  [load more]│  │  …inline, collapsible…      │                         │
+│             │  │  │▸ DIVE "violet"        │                         │
+├─────────────┴───────────────────────────────┴─────────────────────────┤
+│ COMPOSER   [ ask a new question…          ] [ Ask ]                   │
+│            ≈ 1 min read · 5 actions                                   │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 - **Reading sheet:** measure ~720px, generous line-height; holds the root answer plus inline **dive sections**. A quiet meta line (sources · verified) sits directly under the title, above the body.
@@ -117,6 +116,7 @@ A single card shown immediately after the query. Every field has a sensible defa
 - **Wider angles (side rail):** non-dive actions (**ELI5 / Examples / Define**) render as collapsible **cards in the right rail**, never below the text. They are always one step off the main line of reading.
 - **Trail:** horizontal breadcrumb of the active path; click any crumb to jump.
 - **Composer:** persistent bottom ask box with read-time/action counters. Submitting **adds a new question section** below the current content (streamed, with its own dives nested under it and its asides in the side rail), rather than wiping the reader. The session can therefore hold several questions stacked down the sheet; the trail's base crumb follows the active question.
+- **Session history (left rail):** a collapsible pane listing the device user's past sessions, newest activity first (`GET /threads`, cursor-paginated). The active session is marked; clicking another restores it via the same no-generation path as auto-resume. Collapsible from its own header (`«`) and the top-bar `☰` toggle (preference remembered); the `＋` starts a **new session** (returns Home, keeping the old one in history). Offline/model mode lists nothing.
 
 ### 7.2 Reading behavior
 - Content **streams** token-by-token; a skeleton holds layout to avoid jumps.
@@ -431,14 +431,25 @@ The visual system is **reading-first**: the prose and the branching structure ca
   the reading sheet and any additional top-level questions start open. Rich
   markdown, the question-history rail (#11), free-form notes (#12/#13) and the
   credit-meter pre-decrement (#8) remain open.
+- **v16 (session history pane):** the left side gains a **collapsible session
+  history pane** (feedback #11): the device user's past sessions, newest
+  activity first, restored on click through the existing no-generation path
+  (`restoreThread` → `restoreSession`). It is backed by a new owner-scoped,
+  cursor-paginated `GET /threads` (see `docs/API.md` §2); the active session is
+  marked, `＋`/the top-bar button starts a **new session** (Home, prior session
+  retained), and the top-bar `☰` and the pane's `«` toggle it (preference kept in
+  `localStorage`). The reader is now a three-zone grid — history · sheet · wider
+  angles — collapsing to two when hidden and stacking under 1000px. Offline/mock
+  mode shows an empty pane (no local session store yet), and per-session question
+  grouping, free-form session titles and delete-from-history remain open.
 
 ## 21. Implementation map
 
-- `index.html` — app shell: top bar (lens chip, theme, notebook, new), home
-  (centered input + samples), reader (trail, reading sheet with
-  `#readingBody` + `#readingSections` for dives, and the `#actions` rail
-  containing `#sideList` for asides), the bottom composer, selection `#toolbar`,
-  the lens overlay, and the notebook drawer.
+- `index.html` — app shell: top bar (lens chip, sessions toggle, theme,
+  notebook, new), home (centered input + samples), reader (the `#history` session
+  pane, trail, reading sheet with `#readingBody` + `#readingSections` for dives,
+  and the `#actions` rail containing `#sideList` for asides), the bottom
+  composer, selection `#toolbar`, the lens overlay, and the notebook drawer.
 - `api.js` — low-level API client as a plain global (`window.QriouslyAPI`): base
   URL resolution (`?api=`, same-origin on :8000, else `localhost:8000`), device
   auth (`POST /auth/device`) with the token persisted in `localStorage`, REST
@@ -450,11 +461,13 @@ The visual system is **reading-first**: the prose and the branching structure ca
   and `streamBranch(context, hooks)` present one streaming interface; hooks are
   `onToken`/`onMeta`/`onDone`/`onUsage`/`idempotencyKey`. Mock uses `content.js`;
   api does `POST /threads` / `POST /generate` then the SSE stream. Persistence
-  helpers (api-only): `restoreThread(id)` → `GET /threads/{id}`, `saveNote(...)`
+  helpers (api-only): `listThreads(cursor)` → `GET /threads` (session history),
+  `restoreThread(id)` → `GET /threads/{id}`, `saveNote(...)`
   → `POST /threads/{id}/notes`, `deleteNote(id)` → `DELETE /notes/{id}`. Errors
   carry `.status` (402 → out-of-credits, 422 → blocked) for the node retry UI.
 - `script.js` — all behavior. `state = { lens, question, nodes, rootId, order,
-  activeId, counter, toolbarContext, marks, notes, threadId, credits, ... }`.
+  activeId, counter, toolbarContext, marks, notes, threadId, credits, threads,
+  historyCursor, historyDone, ... }`.
   Entry: `startReader()` (first question; creates the thread via `startRoot`) and
   `addQuestion()` (later questions from the composer). Sessions persist: the
   thread id is kept in `localStorage` and `restoreSession(snapshot)` rebuilds a
@@ -469,7 +482,10 @@ The visual system is **reading-first**: the prose and the branching structure ca
   `descendantIds()`). Anchors/marks in `decorateAnchor()`; toolbar + results menu
   in `showToolbar()` / `renderToolbarResults()` / `performAction()`; trail in
   `renderTrail()` / `rootOf()`; `bloomAt()` is the only remaining
-  experience-layer effect. Credits: `setCredits()` / `onGenerationMeta()` /
+  experience-layer effect. Session history: `loadHistory()` / `renderHistory()`
+  (cursor-paginated, `state.threads`/`historyCursor`/`historyDone`) /
+  `openThread(id)` / `newSession()` / `setHistoryOpen()` (via `relTime()`).
+  Credits: `setCredits()` / `onGenerationMeta()` /
   `onGenerationUsage()` (optimistic decrement, reconcile on `usage`, reuse shown);
   failures render inline via `renderNodeError()` with a retry that reuses the
   node's idempotency key (`node.idemKey`). Notes are session-scoped: `saveNote()`
@@ -484,6 +500,6 @@ The visual system is **reading-first**: the prose and the branching structure ca
   selectors: `.anchor`/`.anchor-icon`, `.action-section`/`.as-*` (dives/asks),
   `.question-section` (questions), `.side-list`/`.side-card` (asides),
   `.toolbar-results`/`.toolbar-result`, `.toolbar-ask`, `.actions`, `.composer*`,
-  `.bloom-pulse`.
+  `.history`/`.history-item` (session pane), `.bloom-pulse`.
   The ambient/mote layers and `--energy` were removed in v6.
 - Demo: `?demo=1` seeds a session in `script.js`.

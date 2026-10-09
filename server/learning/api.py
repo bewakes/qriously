@@ -107,8 +107,21 @@ def _node_or_404(user: Any, node_id: str) -> Node:
     return get_object_or_404(Node, id=node_id, thread__user=user)
 
 
-class ThreadCreateView(APIView):
+class ThreadPagination(CursorPagination):
+    page_size = 50
+    ordering = "-updated_at"
+
+
+class ThreadListCreateView(APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = ThreadPagination
+
+    def get(self, request: Request) -> Response:
+        queryset = request.user.threads.all()
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        serializer = ThreadSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request: Request) -> Response:
         question = (request.data.get("question") or "").strip()

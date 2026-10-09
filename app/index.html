@@ -25,6 +25,7 @@
       </a>
       <div class="topbar-actions">
         <span class="conn-badge" id="connBadge" hidden></span>
+        <button type="button" class="iconbtn" id="historyBtn" aria-label="Toggle session history" aria-expanded="true" title="Sessions">☰</button>
         <button type="button" class="lens-chip" id="lensChip" hidden>
           <span class="lens-chip-label">Lens</span>
           <b id="lensChipText">—</b>
@@ -37,7 +38,7 @@
         <button type="button" class="iconbtn notes-btn" id="notesBtn">
           Notebook <span class="count" id="noteCount">0</span>
         </button>
-        <button type="button" class="iconbtn" id="newBtn" title="New question">＋</button>
+        <button type="button" class="iconbtn" id="newBtn" title="New session">＋</button>
       </div>
     </header>
 
@@ -63,7 +64,18 @@
 
     <section class="reader" id="reader" hidden>
       <nav class="trail" id="trail" aria-label="Your path"></nav>
-      <div class="reader-grid">
+      <div class="reader-grid with-history">
+        <aside class="history" id="history" aria-label="Session history">
+          <div class="history-head">
+            <span class="history-title">Sessions</span>
+            <button type="button" class="history-new" id="historyNew" aria-label="Start a new session" title="New session">＋</button>
+            <button type="button" class="history-collapse" id="historyCollapse" aria-label="Collapse session history" title="Collapse">«</button>
+          </div>
+          <ul class="history-list" id="historyList"></ul>
+          <p class="history-empty" id="historyEmpty">Your past sessions appear here.</p>
+          <button type="button" class="history-more" id="historyMore" hidden>Load more</button>
+        </aside>
+
         <article class="reading">
           <p class="reading-kicker" id="readingKicker">Answer</p>
           <h2 class="reading-title" id="readingTitle"></h2>

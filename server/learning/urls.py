@@ -6,12 +6,12 @@ from .api import (
     NoteDetailView,
     NoteListCreateView,
     OutlineView,
-    ThreadCreateView,
     ThreadDetailView,
+    ThreadListCreateView,
 )
 
 urlpatterns = [
-    path("threads", ThreadCreateView.as_view(), name="threads"),
+    path("threads", ThreadListCreateView.as_view(), name="threads"),
     path("threads/<uuid:thread_id>", ThreadDetailView.as_view(), name="thread"),
     path(
         "threads/<uuid:thread_id>/nodes",
