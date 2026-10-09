@@ -1015,7 +1015,7 @@ function restoreSession(snapshot) {
         body: spec.body,
         citations: spec.citations,
         est_read_seconds: spec.est_read_seconds,
-        collapsed: SIDE_KINDS.has(spec.kind) ? true : Boolean(spec.collapsed),
+        collapsed: Boolean(spec.collapsed),
       };
       const anchor = spec.anchor_text || spec.title || spec.kind;
       let created;
@@ -1023,7 +1023,7 @@ function restoreSession(snapshot) {
         const parentLocal = remoteToLocal.get(spec.parent_id);
         if (!parentLocal) return;
         created = createSection(parentLocal, anchor, spec.kind, {
-          preset,
+          preset: { ...preset, collapsed: true },
           question: spec.kind === "ask" ? spec.title : null,
         });
       } else {

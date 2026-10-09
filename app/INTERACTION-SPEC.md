@@ -426,10 +426,11 @@ The visual system is **reading-first**: the prose and the branching structure ca
   for a re-asked question, since the session had been lost). Cache hits are still
   charged the configured fraction (locked decision 5) for genuinely new requests.
   `?demo=1`/offline keeps the in-memory notebook. To keep a restored session
-  calm, **aside cards (ELI5/Examples/Define) start collapsed** on reload (only
-  their header shows); dives and the reading sheet start open. Rich markdown, the
-  question-history rail (#11), free-form notes (#12/#13) and the credit-meter
-  pre-decrement (#8) remain open.
+  calm, **every actioned section — inline dives/asks and the aside cards
+  (ELI5/Examples/Define) — starts collapsed** on reload (only its header shows);
+  the reading sheet and any additional top-level questions start open. Rich
+  markdown, the question-history rail (#11), free-form notes (#12/#13) and the
+  credit-meter pre-decrement (#8) remain open.
 
 ## 21. Implementation map
 
