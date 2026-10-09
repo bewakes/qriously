@@ -425,7 +425,9 @@ The visual system is **reading-first**: the prose and the branching structure ca
   refresh no longer re-charges (the earlier phantom debit was a cache-hit charge
   for a re-asked question, since the session had been lost). Cache hits are still
   charged the configured fraction (locked decision 5) for genuinely new requests.
-  `?demo=1`/offline keeps the in-memory notebook. Rich markdown, the
+  `?demo=1`/offline keeps the in-memory notebook. To keep a restored session
+  calm, **aside cards (ELI5/Examples/Define) start collapsed** on reload (only
+  their header shows); dives and the reading sheet start open. Rich markdown, the
   question-history rail (#11), free-form notes (#12/#13) and the credit-meter
   pre-decrement (#8) remain open.
 

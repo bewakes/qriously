@@ -1015,7 +1015,7 @@ function restoreSession(snapshot) {
         body: spec.body,
         citations: spec.citations,
         est_read_seconds: spec.est_read_seconds,
-        collapsed: spec.collapsed,
+        collapsed: SIDE_KINDS.has(spec.kind) ? true : Boolean(spec.collapsed),
       };
       const anchor = spec.anchor_text || spec.title || spec.kind;
       let created;
