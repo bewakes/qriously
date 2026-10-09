@@ -792,7 +792,7 @@ a {
 
 .as-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   margin-bottom: 6px;
   user-select: none;
@@ -841,9 +841,11 @@ a {
   font-style: italic;
   font-size: 0.98rem;
   color: var(--ink-dim);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
   cursor: pointer;
   transition: color 0.18s var(--ease);
 }

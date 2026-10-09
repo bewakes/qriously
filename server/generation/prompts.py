@@ -11,6 +11,17 @@ ANCHOR_RULE = (
     "terms worth a separate explanation, never whole sentences."
 )
 
+DEFINE_ANCHOR_RULE = (
+    "If a term genuinely merits its own explanation, wrap it in double "
+    "asterisks; a short definition may contain no markers at all."
+)
+
+DEFINE_LENGTH_RULE = (
+    "Keep the definition short: one or two sentences that state what the term "
+    "is. This holds regardless of the reader's depth preference or how long the "
+    "surrounding answer is — a definition is never an essay about the term."
+)
+
 TRUST_RULE = (
     "Do not invent citations and do not claim that any source has been "
     "checked. When you are unsure, say so plainly rather than fabricating a "
@@ -51,7 +62,7 @@ KIND_GUIDANCE = {
     "dive": "Explain the highlighted phrase in its own right, in context.",
     "eli5": "Explain it as you would to a bright five-year-old.",
     "example": "Explain mainly through concrete examples.",
-    "define": "Give a short, precise definition.",
+    "define": "Give a short, precise definition with no preamble.",
     "ask": "Answer the reader's follow-up question about the passage.",
 }
 
@@ -59,14 +70,15 @@ KIND_GUIDANCE = {
 def build_system_prompt(lens: Mapping[str, str] | None, kind: str) -> str:
     """Return the lens- and kind-aware system prompt for a generation request."""
     normalized = normalize_lens(lens)
+    is_define = kind == "define"
     sections = [
         "You are Qriously, an explanation engine inside a learning reader.",
         KIND_GUIDANCE.get(kind, KIND_GUIDANCE["root"]),
         FAMILIARITY_GUIDANCE[normalized["familiarity"]],
-        DEPTH_GUIDANCE[normalized["depth"]],
+        DEFINE_LENGTH_RULE if is_define else DEPTH_GUIDANCE[normalized["depth"]],
         STYLE_GUIDANCE[normalized["style"]],
         GOAL_GUIDANCE[normalized["goal"]],
-        ANCHOR_RULE,
+        DEFINE_ANCHOR_RULE if is_define else ANCHOR_RULE,
         TRUST_RULE,
     ]
     return "\n".join(sections)

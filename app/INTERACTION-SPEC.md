@@ -387,6 +387,24 @@ The visual system is **reading-first**: the prose and the branching structure ca
   `theme/tokens.css`; server-side notes and thread-snapshot restore (notes stay
   local for now); and `[data-skin]` product skins.
 
+- **v13 (feedback pass):** a round of small fixes from a live session. (1) The
+  home eyebrow drops the "Branch anywhere" product-feature framing for a
+  curiosity-first line ("Follow your curiosity · one phrase at a time"). (2) The
+  composer starts **empty** instead of being prefilled with the root question, so
+  the next ask doesn't require clearing it first. (3) The selection threshold now
+  admits up to **four lines** (was a hard 120-character cap), so longer spans can
+  be dived or noted; the 4-line limit matches the rule that only very long spans
+  are declined. (4) Section/side-card headers wrap to **four lines** instead of a
+  single-line ellipsis, so short questions/anchors are no longer clipped. (5)
+  Activating a section — a trail crumb, a results-menu row, or the `↩` backlink —
+  now **expands any collapsed ancestors** before scrolling, fixing the dead end
+  where a result inside a collapsed dive appeared not to exist. Backend: the
+  `define` prompt is now always **short and depth-independent** (a definition is
+  not an essay scaled to the reader's depth), which bumps `PROMPT_VERSION` to
+  `v2` (a new version, never a mutation of cached variants). Deferred and still
+  open: rich markdown rendering/formatting, an explicit context layer, the
+  question-history rail, custom notes, and the credit-meter pre-decrement.
+
 ## 21. Implementation map
 
 - `index.html` — app shell: top bar (lens chip, theme, notebook, new), home

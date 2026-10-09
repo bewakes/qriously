@@ -531,9 +531,19 @@ function toggleSection(node) {
   if (node.collapsed && state.activeId === node.id) clearHighlight();
 }
 
+function expandAncestors(id) {
+  let node = state.nodes.get(id);
+  node = node && node.parentId ? state.nodes.get(node.parentId) : null;
+  while (node) {
+    if (node.collapsed) toggleSection(node);
+    node = node.parentId ? state.nodes.get(node.parentId) : null;
+  }
+}
+
 function focusSection(id) {
   const node = state.nodes.get(id);
   if (!node) return;
+  expandAncestors(id);
   if (node.collapsed) toggleSection(node);
   setActive(id);
   node.el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
@@ -542,6 +552,7 @@ function focusSection(id) {
 }
 
 function focusSource(node) {
+  expandAncestors(node.id);
   const el = containerEl(node.parentId);
   if (!el) return;
   const key = normalize(node.anchor);
@@ -780,7 +791,7 @@ function startReader(question) {
   lensChip.hidden = false;
   lensChipText.textContent = formatLens();
   composer.hidden = false;
-  composerInput.value = question;
+  composerInput.value = "";
 
   state.nodes.clear();
   state.order = [];
@@ -920,8 +931,9 @@ document.addEventListener("mouseup", (event) => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
     const text = selection.toString().trim();
-    if (text.length < 2 || text.length > 120) return;
+    if (text.length < 2) return;
     const range = selection.getRangeAt(0);
+    if (range.getClientRects().length > 4) return;
     const start = range.startContainer;
     const host = start.nodeType === 1 ? start : start.parentElement;
     if (host && host.closest(".as-head, button, .toolbar, .composer, .topbar, .trail")) return;
