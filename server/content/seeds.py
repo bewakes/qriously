@@ -75,10 +75,11 @@ SEED_VARIANTS = [
         "lens": DEFAULT_SEED_LENS,
         "title": "Rayleigh scattering in everyday life",
         "body": (
-            "A clear midday sky is **blue** because scattered short wavelengths "
-            "dominate overhead. At **sunset**, light crosses more atmosphere and "
-            "the blue is scattered away, leaving reds and oranges. The same "
-            "physics makes distant mountains look hazy and blue."
+            "- A clear midday sky is **blue** — short wavelengths scatter "
+            "overhead.\n"
+            "- At **sunset**, light crosses more air and the blue scatters away, "
+            "leaving reds and oranges.\n"
+            "- Distant mountains look hazy and blue for the same reason."
         ),
     },
 ]

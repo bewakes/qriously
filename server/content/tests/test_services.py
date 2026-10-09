@@ -8,11 +8,14 @@ from content.services import (
     resolve_variant,
     upsert_concept,
 )
+from core.constants import PROMPT_VERSION
 
 LENS = {"familiarity": "basics", "depth": "solid", "style": "plain", "goal": "curious"}
 
 
-def make_variant(concept, *, kind=Kind.DIVE, context_key="", version="v1", body="body"):
+def make_variant(
+    concept, *, kind=Kind.DIVE, context_key="", version=PROMPT_VERSION, body="body"
+):
     return create_variant(
         concept=concept,
         kind=kind,
@@ -46,7 +49,7 @@ def test_create_variant_derives_bucket_vector_and_read_time():
     assert variant.lens_bucket == "basics:solid:plain:curious"
     assert variant.lens_vector == [0.0, 0.0, -1.0, -1.0]
     assert variant.est_read_seconds == 60
-    assert variant.prompt_version == "v1"
+    assert variant.prompt_version == PROMPT_VERSION
 
 
 @pytest.mark.django_db

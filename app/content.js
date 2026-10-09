@@ -24,7 +24,7 @@ const LIBRARY = {
     },
     example: {
       title: "A glass of milky water",
-      body: "Put a drop of milk in a glass of water and shine a torch through it. From the side, the beam looks blue; look straight through the end and it glows orange. Same effect, tabletop-sized.",
+      body: "- Put a drop of milk in a glass of water and shine a torch through it.\n- From the side, the beam looks **blue**.\n- Look straight through the end and it glows orange.",
       citations: 1,
     },
   },
@@ -70,7 +70,7 @@ const LIBRARY = {
     },
     example: {
       title: "Wavelengths in scale",
-      body: "Radio waves can be metres long; visible light is around half a micrometre. They are the same kind of thing, just at wildly different lengths.",
+      body: "- Radio waves can be metres long.\n- Visible light is around half a micrometre.\n- The same kind of wave, at wildly different scales.",
       citations: 1,
     },
     define: {
@@ -155,7 +155,7 @@ const LIBRARY = {
     },
     example: {
       title: "The sky on Mars",
-      body: "Mars has a thin, dusty atmosphere, so its daytime sky is butterscotch and its sunsets glow blue — the reverse of Earth. Different air, different scattering.",
+      body: "- Mars has a thin, dusty **atmosphere**.\n- Its daytime sky is butterscotch.\n- Its sunsets glow blue — the reverse of Earth.",
       citations: 2,
     },
     define: {
@@ -228,7 +228,7 @@ function synthesize(anchor, kind, lens) {
   if (kind === "example") {
     return {
       title: `Examples of ${a}`,
-      body: `Take **${a}** and drop it into a situation you already know. Once you spot the pattern there, you will start noticing it everywhere — the same shape wearing different clothes.`,
+      body: `- Drop **${a}** into a situation you already know.\n- Spot the same pattern again in a second, unrelated place.\n- Then notice it where you least expect it.`,
       citations: 1,
     };
   }

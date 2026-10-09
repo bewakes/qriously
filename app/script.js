@@ -29,6 +29,9 @@ const lensOverlay = $("lensOverlay");
 const lensQuestion = $("lensQuestion");
 const lensChip = $("lensChip");
 const lensChipText = $("lensChipText");
+const creditMeter = $("creditMeter");
+const creditValue = $("creditValue");
+const connBadge = $("connBadge");
 const themeBtn = $("themeBtn");
 const notesBtn = $("notesBtn");
 const noteCount = $("noteCount");
@@ -54,7 +57,38 @@ const state = {
   toolbarContext: null,
   marks: [],
   notes: [],
+  threadId: null,
+  credits: null,
+  creditsKnown: false,
 };
+
+const content = window.QriouslyContent;
+
+const THREAD_KEY = "qriously-thread-id";
+
+function readThreadId() {
+  try {
+    return localStorage.getItem(THREAD_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+function persistThreadId(id) {
+  try {
+    if (id) localStorage.setItem(THREAD_KEY, id);
+    else localStorage.removeItem(THREAD_KEY);
+  } catch (e) {}
+}
+
+function uuid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 function escapeHtml(value) {
   return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -76,35 +110,155 @@ function nodeLabel(node) {
   return node.kind === "ask" ? node.title : node.anchor;
 }
 
-function renderBody(raw) {
-  return escapeHtml(raw).replace(
-    /\*\*(.+?)\*\*/g,
-    (m, t) => `<span class="anchor" data-term="${escapeAttr(t)}">${t}</span>`
-  );
+function inlineBody(text) {
+  let out = "";
+  let last = 0;
+  const re = /\*\*(.+?)\*\*/g;
+  let match;
+  while ((match = re.exec(text))) {
+    out += escapeHtml(text.slice(last, match.index));
+    out += `<span class="anchor" data-term="${escapeAttr(match[1])}">${escapeHtml(match[1])}</span>`;
+    last = re.lastIndex;
+  }
+  return out + escapeHtml(text.slice(last));
 }
 
-function streamInto(el, raw, done) {
-  if (reduce) {
-    el.innerHTML = renderBody(raw);
-    if (done) done();
-    return;
-  }
-  const words = raw.split(" ");
-  let i = 0;
-  el.classList.add("streaming");
-  el.textContent = "";
-  const step = () => {
-    i = Math.min(words.length, i + 2);
-    el.textContent = words.slice(0, i).join(" ");
-    if (i < words.length) {
-      setTimeout(step, 16);
-    } else {
-      el.classList.remove("streaming");
-      el.innerHTML = renderBody(raw);
-      if (done) done();
+function renderBody(raw) {
+  const lines = String(raw).split("\n");
+  const html = [];
+  let paragraph = [];
+  let listTag = null;
+
+  const closeList = () => {
+    if (listTag) {
+      html.push(`</${listTag}>`);
+      listTag = null;
     }
   };
-  setTimeout(step, 40);
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      html.push(`<p>${inlineBody(paragraph.join(" "))}</p>`);
+      paragraph = [];
+    }
+  };
+
+  lines.forEach((line) => {
+    const text = line.trim();
+    if (!text) {
+      flushParagraph();
+      closeList();
+      return;
+    }
+    const bullet = /^[-*]\s+(.*)$/.exec(text);
+    const numbered = /^\d+[.)]\s+(.*)$/.exec(text);
+    const item = bullet ? bullet[1] : numbered ? numbered[1] : null;
+    if (item !== null) {
+      flushParagraph();
+      const tag = bullet ? "ul" : "ol";
+      if (listTag !== tag) {
+        closeList();
+        html.push(`<${tag}>`);
+        listTag = tag;
+      }
+      html.push(`<li>${inlineBody(item)}</li>`);
+      return;
+    }
+    closeList();
+    paragraph.push(text);
+  });
+
+  flushParagraph();
+  closeList();
+  return html.join("");
+}
+
+function startBodyStream(el) {
+  let raw = "";
+  el.classList.add("streaming");
+  el.textContent = "";
+  return {
+    token(text) {
+      raw += text;
+      el.textContent = raw;
+    },
+    finish() {
+      el.classList.remove("streaming");
+      el.innerHTML = renderBody(raw);
+      return raw;
+    },
+    fail() {
+      el.classList.remove("streaming");
+    },
+  };
+}
+
+function setCredits(balance, meta) {
+  if (typeof balance !== "number") return;
+  state.credits = balance;
+  state.creditsKnown = true;
+  creditValue.textContent = String(balance);
+  creditMeter.hidden = false;
+  creditMeter.classList.toggle("low", balance <= 30);
+  if (meta && meta.cacheHit) creditMeter.classList.add("reused");
+  else creditMeter.classList.remove("reused");
+  if (balance > 0) creditMeter.classList.remove("empty");
+}
+
+function onGenerationMeta(meta) {
+  if (!state.creditsKnown || !meta) return;
+  setCredits(Math.max(0, state.credits - (meta.cost || 0)));
+}
+
+function onGenerationUsage(usage) {
+  if (!usage) return;
+  setCredits(usage.balance, { cacheHit: usage.cache_hit });
+  if (usage.cache_hit) {
+    toast(`Reused an earlier answer · ${usage.credits_charged} credits`);
+  }
+}
+
+function showConnection(mode) {
+  const live = mode === "api";
+  connBadge.hidden = false;
+  connBadge.textContent = live ? "Live" : "Offline · sample";
+  connBadge.classList.toggle("live", live);
+}
+
+function errorKind(err) {
+  if (err && err.status === 402) return "credits";
+  if (err && err.status === 422) return "blocked";
+  if (err && err.code) return "upstream";
+  return "offline";
+}
+
+function renderNodeError(node, err) {
+  const kind = errorKind(err);
+  const messages = {
+    credits: "You're out of credits for now.",
+    blocked: "I can't help with that one.",
+    upstream: "The answer service couldn't respond just now.",
+    offline: "Couldn't reach the server. Check your connection and try again.",
+  };
+  node.bodyEl.innerHTML = `
+    <div class="node-error" data-kind="${kind}">
+      <p>${escapeHtml(messages[kind])}</p>
+      ${kind === "blocked" ? "" : '<button type="button" class="node-retry">Try again</button>'}
+    </div>
+  `;
+  const retry = node.bodyEl.querySelector(".node-retry");
+  if (retry) {
+    retry.addEventListener("click", () => {
+      node.bodyEl.innerHTML = "";
+      node.status = "streaming";
+      fillContent(node);
+    });
+  }
+  if (kind === "blocked") toast("Can't help with that one.");
+  if (kind === "credits") {
+    creditMeter.hidden = false;
+    creditMeter.classList.add("empty");
+    toast("Out of credits.");
+  }
 }
 
 function toast(message) {
@@ -155,26 +309,31 @@ function anchorRect(containerId, anchor) {
   return span ? span.getBoundingClientRect() : null;
 }
 
-function createSection(containerId, anchor, kind, seed) {
+function createSection(containerId, anchor, kind, options) {
   const parent = state.nodes.get(containerId);
   if (!parent) return null;
   const clean = anchor.replace(/\s+/g, " ").trim();
   if (!clean) return null;
 
+  const preset = options && options.preset;
   const depth = parent.depth + 1;
-  const data = seed || generateNode(parent, clean, kind, state.lens);
   const id = "a" + ++state.counter;
+  const question = options && options.question ? options.question : null;
   const node = {
     id,
     parentId: containerId,
     depth,
     kind,
     anchor: clean,
-    title: data.title,
-    body: data.body,
-    citations: data.citations,
-    estReadSeconds: data.estReadSeconds,
+    question,
+    title: preset && preset.title ? preset.title : kind === "ask" && question ? question : clean,
+    body: "",
+    citations: [],
+    estReadSeconds: 0,
     collapsed: false,
+    status: "streaming",
+    remoteId: preset ? preset.id : null,
+    idemKey: uuid(),
   };
   state.nodes.set(id, node);
 
@@ -183,7 +342,7 @@ function createSection(containerId, anchor, kind, seed) {
   el.className = isInline ? `action-section kind-${kind}` : `side-card kind-${kind}`;
   el.dataset.id = id;
   el.dataset.depth = String(depth);
-  const heading = kind === "ask" ? escapeHtml(data.title) : `“${escapeHtml(clean)}”`;
+  const heading = kind === "ask" ? escapeHtml(node.title) : `“${escapeHtml(clean)}”`;
   el.innerHTML = `
     <header class="as-head">
       <button type="button" class="as-toggle" aria-expanded="true" aria-label="Collapse">▼</button>
@@ -207,30 +366,37 @@ function createSection(containerId, anchor, kind, seed) {
   }
   state.order.push(id);
 
-  streamInto(node.bodyEl, node.body, () => applyMarks(id));
-
   registerMark(containerId, clean, kind, id);
-  bloomAt(anchorRect(containerId, clean));
 
+  if (preset) {
+    node.body = preset.body || "";
+    node.citations = preset.citations || [];
+    node.estReadSeconds = preset.est_read_seconds || 0;
+    node.status = "done";
+    node.bodyEl.innerHTML = renderBody(node.body);
+    if (preset.collapsed) toggleSection(node);
+    updateStatus();
+    return node;
+  }
+
+  bloomAt(anchorRect(containerId, clean));
   setActive(id);
   updateStatus();
   requestAnimationFrame(() => el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" }));
+  fillContent(node);
   return node;
 }
 
 function createAsk(containerId, anchor, question) {
-  const parent = state.nodes.get(containerId);
-  if (!parent) return null;
   const clean = question.replace(/\s+/g, " ").trim();
   if (!clean) return null;
-  const seed = generateAsk(parent, anchor, clean, state.lens);
-  return createSection(containerId, anchor, "ask", seed);
+  return createSection(containerId, anchor, "ask", { question: clean });
 }
 
-function addQuestion(question) {
+function addQuestion(question, options) {
   const clean = question.replace(/\s+/g, " ").trim();
   if (!clean) return null;
-  const data = generateRoot(clean, state.lens);
+  const preset = options && options.preset;
   const id = "q" + ++state.counter;
   const node = {
     id,
@@ -239,11 +405,15 @@ function addQuestion(question) {
     kind: "root",
     isRoot: true,
     anchor: clean,
-    title: data.title,
-    body: data.body,
-    citations: data.citations,
-    estReadSeconds: data.estReadSeconds,
+    question: clean,
+    title: preset && preset.title ? preset.title : clean,
+    body: "",
+    citations: [],
+    estReadSeconds: 0,
     collapsed: false,
+    status: "streaming",
+    remoteId: preset ? preset.id : null,
+    idemKey: uuid(),
   };
   state.nodes.set(id, node);
 
@@ -268,11 +438,79 @@ function addQuestion(question) {
   readingSections.appendChild(el);
   state.order.push(id);
 
-  streamInto(node.bodyEl, node.body, () => applyMarks(id));
+  if (preset) {
+    node.body = preset.body || "";
+    node.citations = preset.citations || [];
+    node.estReadSeconds = preset.est_read_seconds || 0;
+    node.status = "done";
+    node.bodyEl.innerHTML = renderBody(node.body);
+    if (preset.collapsed) toggleSection(node);
+    updateStatus();
+    return node;
+  }
+
   setActive(id);
   updateStatus();
   requestAnimationFrame(() => el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }));
+  fillContent(node);
   return node;
+}
+
+function updateReadingMeta(node) {
+  const mins = Math.max(1, Math.round((node.estReadSeconds || 0) / 60));
+  readingMeta.textContent = `≈ ${mins} min read`;
+}
+
+function fillContent(node) {
+  const view = startBodyStream(node.bodyEl);
+  const parentNode = node.isRoot ? null : state.nodes.get(node.parentId);
+  const hooks = {
+    onToken: view.token,
+    onMeta: onGenerationMeta,
+    onUsage: onGenerationUsage,
+    idempotencyKey: node.idemKey,
+  };
+  const context = {
+    threadId: state.threadId,
+    parentRemoteId: parentNode ? parentNode.remoteId : null,
+    parent: parentNode,
+    anchor: node.anchor,
+    kind: node.kind,
+    question: node.question,
+    lens: state.lens,
+    idempotencyKey: node.idemKey,
+  };
+  const run =
+    node.isRoot && !state.threadId
+      ? content.startRoot(node.question, state.lens, hooks)
+      : content.streamBranch(context, hooks);
+
+  run
+    .then((data) => {
+      node.body = view.finish();
+      node.status = "done";
+      if (data.title && node.kind === "ask") {
+        node.title = data.title;
+        const anchorBtn = node.el.querySelector(".as-anchor");
+        if (anchorBtn) anchorBtn.textContent = data.title;
+      }
+      node.citations = data.citations || [];
+      node.estReadSeconds = data.estReadSeconds || 0;
+      node.remoteId = data.nodeId || node.remoteId;
+      if (node.isRoot && data.threadId) {
+        state.threadId = data.threadId;
+        persistThreadId(data.threadId);
+      }
+      applyMarks(node.id);
+      updateStatus();
+      renderTrail();
+      if (node.isRoot) updateReadingMeta(node);
+    })
+    .catch((err) => {
+      view.fail();
+      node.status = "error";
+      renderNodeError(node, err);
+    });
 }
 
 function registerMark(containerId, anchor, kind, id) {
@@ -392,9 +630,19 @@ function toggleSection(node) {
   if (node.collapsed && state.activeId === node.id) clearHighlight();
 }
 
+function expandAncestors(id) {
+  let node = state.nodes.get(id);
+  node = node && node.parentId ? state.nodes.get(node.parentId) : null;
+  while (node) {
+    if (node.collapsed) toggleSection(node);
+    node = node.parentId ? state.nodes.get(node.parentId) : null;
+  }
+}
+
 function focusSection(id) {
   const node = state.nodes.get(id);
   if (!node) return;
+  expandAncestors(id);
   if (node.collapsed) toggleSection(node);
   setActive(id);
   node.el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
@@ -403,6 +651,7 @@ function focusSection(id) {
 }
 
 function focusSource(node) {
+  expandAncestors(node.id);
   const el = containerEl(node.parentId);
   if (!el) return;
   const key = normalize(node.anchor);
@@ -586,10 +835,18 @@ function performAction(kind) {
 function saveNote(text, containerId) {
   const node = state.nodes.get(containerId);
   const context = node ? (node.isRoot ? readingTitle.textContent : node.title) : readingTitle.textContent;
-  state.notes.unshift({ id: "n" + Date.now(), text: text.trim(), context });
+  const note = { id: "n" + Date.now(), text: text.trim(), context, remoteId: null };
+  state.notes.unshift(note);
   renderNotes();
   updateNoteCount();
   toast("Saved to notebook");
+
+  const remoteNodeId = node ? node.remoteId : null;
+  if (state.threadId && remoteNodeId) {
+    content.saveNote({ threadId: state.threadId, remoteNodeId, text: note.text, context }).then((saved) => {
+      if (saved && saved.id) note.remoteId = saved.id;
+    });
+  }
 }
 
 function updateNoteCount() {
@@ -612,6 +869,7 @@ function renderNotes() {
       state.notes = state.notes.filter((n) => n.id !== note.id);
       renderNotes();
       updateNoteCount();
+      if (note.remoteId) content.deleteNote(note.remoteId);
     });
     li.appendChild(del);
     noteList.appendChild(li);
@@ -635,12 +893,14 @@ function exportNotes() {
 
 function startReader(question) {
   state.question = question;
+  state.threadId = null;
+  persistThreadId(null);
   home.hidden = true;
   reader.hidden = false;
   lensChip.hidden = false;
   lensChipText.textContent = formatLens();
   composer.hidden = false;
-  composerInput.value = question;
+  composerInput.value = "";
 
   state.nodes.clear();
   state.order = [];
@@ -657,13 +917,20 @@ function startReader(question) {
     parentId: null,
     depth: 0,
     kind: "root",
-    anchor: question,
-    title: question,
     isRoot: true,
+    anchor: question,
+    question,
+    title: question,
     el: document.querySelector(".reading"),
     sectionsEl: readingSections,
     bodyEl: readingBody,
-    estReadSeconds: estimateReadSeconds(SEED_ROOT.body),
+    body: "",
+    citations: [],
+    estReadSeconds: 0,
+    collapsed: false,
+    status: "streaming",
+    remoteId: null,
+    idemKey: uuid(),
   };
   state.nodes.set("root", rootNode);
   state.rootId = "root";
@@ -671,15 +938,119 @@ function startReader(question) {
   readingTitle.textContent = question;
   readingBody.dataset.nodeId = "root";
   readingMeta.textContent = "streaming…";
-  streamInto(readingBody, SEED_ROOT.body, () => {
-    readingMeta.textContent = "3 sources · verified overview";
-    applyMarks("root");
-  });
 
   renderTrail();
   updateActions();
   updateStatus();
   window.scrollTo({ top: 0, behavior: "auto" });
+  fillContent(rootNode);
+}
+
+function restoreSession(snapshot) {
+  const nodes = (snapshot && snapshot.nodes) || [];
+  if (!nodes.length) return false;
+  const thread = snapshot.thread || {};
+  if (thread.lens && Object.keys(thread.lens).length) state.lens = thread.lens;
+  state.question = thread.title || nodes[0].title || "";
+
+  home.hidden = true;
+  reader.hidden = false;
+  lensChip.hidden = false;
+  lensChipText.textContent = formatLens();
+  composer.hidden = false;
+  composerInput.value = "";
+
+  state.nodes.clear();
+  state.order = [];
+  state.marks = [];
+  state.notes = [];
+  state.activeId = null;
+  state.counter = 0;
+  readingSections.innerHTML = "";
+  sideList.innerHTML = "";
+  actionsEmpty.hidden = false;
+  actionCount.textContent = "0";
+  state.threadId = thread.id || null;
+  persistThreadId(state.threadId);
+
+  const spanById = new Map();
+  (snapshot.spans || []).forEach((span) => spanById.set(span.id, span));
+  const remoteToLocal = new Map();
+
+  const first = nodes.find((n) => !n.parent_id) || nodes[0];
+  const rootNode = {
+    id: "root",
+    parentId: null,
+    depth: 0,
+    kind: first.kind || "root",
+    isRoot: true,
+    anchor: first.anchor_text || first.title || state.question,
+    question: first.title || state.question,
+    title: first.title || state.question,
+    el: document.querySelector(".reading"),
+    sectionsEl: readingSections,
+    bodyEl: readingBody,
+    body: first.body || "",
+    citations: first.citations || [],
+    estReadSeconds: first.est_read_seconds || 0,
+    collapsed: false,
+    status: "done",
+    remoteId: first.id,
+    idemKey: "",
+  };
+  state.nodes.set("root", rootNode);
+  state.rootId = "root";
+  readingTitle.textContent = rootNode.title;
+  readingBody.dataset.nodeId = "root";
+  readingBody.innerHTML = renderBody(rootNode.body);
+  updateReadingMeta(rootNode);
+  remoteToLocal.set(first.id, "root");
+
+  nodes
+    .filter((n) => n.id !== first.id)
+    .forEach((spec) => {
+      const preset = {
+        id: spec.id,
+        title: spec.title,
+        body: spec.body,
+        citations: spec.citations,
+        est_read_seconds: spec.est_read_seconds,
+        collapsed: Boolean(spec.collapsed),
+      };
+      const anchor = spec.anchor_text || spec.title || spec.kind;
+      let created;
+      if (spec.parent_id) {
+        const parentLocal = remoteToLocal.get(spec.parent_id);
+        if (!parentLocal) return;
+        created = createSection(parentLocal, anchor, spec.kind, {
+          preset: { ...preset, collapsed: true },
+          question: spec.kind === "ask" ? spec.title : null,
+        });
+      } else {
+        created = addQuestion(spec.title || anchor || "Question", { preset });
+      }
+      if (created) remoteToLocal.set(spec.id, created.id);
+    });
+
+  (snapshot.notes || []).forEach((note) => {
+    const span = spanById.get(note.span_id);
+    const localId = span ? remoteToLocal.get(span.source_node_id) : null;
+    const localNode = localId ? state.nodes.get(localId) : null;
+    const context =
+      note.context ||
+      (localNode ? (localNode.isRoot ? rootNode.title : localNode.title) : thread.title || "this session");
+    state.notes.push({ id: note.id, text: note.text, context, remoteId: note.id });
+  });
+
+  setActive("root");
+  renderTrail();
+  updateActions();
+  updateStatus();
+  renderSide();
+  renderNotes();
+  updateNoteCount();
+  window.scrollTo({ top: 0, behavior: "auto" });
+  return true;
 }
 
 function openLens(question) {
@@ -776,8 +1147,9 @@ document.addEventListener("mouseup", (event) => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
     const text = selection.toString().trim();
-    if (text.length < 2 || text.length > 120) return;
+    if (text.length < 2) return;
     const range = selection.getRangeAt(0);
+    if (range.getClientRects().length > 4) return;
     const start = range.startContainer;
     const host = start.nodeType === 1 ? start : start.parentElement;
     if (host && host.closest(".as-head, button, .toolbar, .composer, .topbar, .trail")) return;
@@ -858,12 +1230,31 @@ renderNotes();
 updateNoteCount();
 
 const params = new URLSearchParams(location.search);
-if (params.has("demo")) {
+
+function seedDemo() {
   startReader(SEED_QUESTION);
   const d1 = createSection("root", "Rayleigh scattering", "dive");
   createSection("root", "Rayleigh scattering", "define");
   createSection("root", "nitrogen", "eli5");
+  if (!d1) return;
   createSection(d1.id, "wavelength", "example");
   const d2 = createSection(d1.id, "violet", "dive");
-  createSection(d2.id, "eyes", "dive");
+  if (d2) createSection(d2.id, "eyes", "dive");
 }
+
+content.init().then((info) => {
+  if (info.mode === "api") {
+    showConnection("api");
+    setCredits(info.balance);
+    const savedThread = readThreadId();
+    if (savedThread && !params.has("demo")) {
+      content.restoreThread(savedThread).then((snapshot) => {
+        if (snapshot && snapshot.nodes && snapshot.nodes.length) restoreSession(snapshot);
+        else persistThreadId(null);
+      });
+    }
+  } else {
+    showConnection("mock");
+  }
+  if (params.has("demo")) seedDemo();
+});

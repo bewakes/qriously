@@ -376,6 +376,61 @@ The visual system is **reading-first**: the prose and the branching structure ca
   offline/demo use. `content.js` remains as that offline adapter behind the same
   `generateRoot`/`generateNode`/`generateAsk` signatures. Every charge is tied to
   a `request_id`; the backend also records vendor LLM cost per request.
+- **v12 (wiring, current):** v11 is implemented without a build step, as two
+  plain globals rather than an `src/` ES-module tree (`file://`-safe, no bundler):
+  `api.js` (client/auth/SSE) and `adapter.js` (api-vs-mock chooser + streaming
+  interface). `content.js` stays the offline mock behind its original signatures.
+  Sections become **shell-first + async**: the card DOM and anchor mark appear
+  immediately and content streams in, so the recursive/nested/anchored behavior is
+  unchanged while the source becomes a stream. Deferred from this phase (logged,
+  not built): the full `src/` component extraction and token split into
+  `theme/tokens.css`; server-side notes and thread-snapshot restore (notes stay
+  local for now); and `[data-skin]` product skins.
+
+- **v13 (feedback pass):** a round of small fixes from a live session. (1) The
+  home eyebrow drops the "Branch anywhere" product-feature framing for a
+  curiosity-first line ("Follow your curiosity · one phrase at a time"). (2) The
+  composer starts **empty** instead of being prefilled with the root question, so
+  the next ask doesn't require clearing it first. (3) The selection threshold now
+  admits up to **four lines** (was a hard 120-character cap), so longer spans can
+  be dived or noted; the 4-line limit matches the rule that only very long spans
+  are declined. (4) Section/side-card headers wrap to **four lines** instead of a
+  single-line ellipsis, so short questions/anchors are no longer clipped. (5)
+  Activating a section — a trail crumb, a results-menu row, or the `↩` backlink —
+  now **expands any collapsed ancestors** before scrolling, fixing the dead end
+  where a result inside a collapsed dive appeared not to exist. Backend: the
+  `define` prompt is now always **short and depth-independent** (a definition is
+  not an essay scaled to the reader's depth), which bumps `PROMPT_VERSION` to
+  `v2` (a new version, never a mutation of cached variants). Deferred and still
+  open: rich markdown rendering/formatting, an explicit context layer, the
+  question-history rail, custom notes, and the credit-meter pre-decrement.
+- **v14:** `example` gets a fixed shape (feedback 14): a short markdown list of
+  **2–4 one-line examples**, independent of the reader's depth — depth no longer
+  inflates examples into a paragraph. To render that, the body renderer
+  (`renderBody`) now understands a small, deliberate subset of markdown:
+  blank-line-separated **paragraphs** and `-`/`1.` **lists**, with `**anchors**`
+  working inside list items and paragraphs. Nothing is highlighted until acted on
+  (unchanged). This is the first slice of the pending rich-markdown work
+  (feedback 1); headings/emphasis/links are still open, and the prompt does not
+  yet request structured formatting for long general answers. Side/section
+  headers were also switched to **baseline alignment** so the kind label and its
+  phrase share a baseline. Backend: `PROMPT_VERSION` → `v3`.
+- **v15 (persistence + restore):** the notebook is now **session-scoped and
+  server-backed**. Each note belongs to the session (`Note.thread`) and is
+  span-anchored; saving a phrase that was never branched materializes a `Span`
+  on demand (`learning.services.get_or_create_span`) instead of inventing a
+  free-form note. The reader **auto-resumes the last session on boot**: the app
+  keeps the thread id in `localStorage` and rebuilds the reading sheet, dives,
+  anchor marks and notes from `GET /threads/{id}` **without generating**, so a
+  refresh no longer re-charges (the earlier phantom debit was a cache-hit charge
+  for a re-asked question, since the session had been lost). Cache hits are still
+  charged the configured fraction (locked decision 5) for genuinely new requests.
+  `?demo=1`/offline keeps the in-memory notebook. To keep a restored session
+  calm, **every actioned section — inline dives/asks and the aside cards
+  (ELI5/Examples/Define) — starts collapsed** on reload (only its header shows);
+  the reading sheet and any additional top-level questions start open. Rich
+  markdown, the question-history rail (#11), free-form notes (#12/#13) and the
+  credit-meter pre-decrement (#8) remain open.
 
 ## 21. Implementation map
 
@@ -384,24 +439,47 @@ The visual system is **reading-first**: the prose and the branching structure ca
   `#readingBody` + `#readingSections` for dives, and the `#actions` rail
   containing `#sideList` for asides), the bottom composer, selection `#toolbar`,
   the lens overlay, and the notebook drawer.
+- `api.js` — low-level API client as a plain global (`window.QriouslyAPI`): base
+  URL resolution (`?api=`, same-origin on :8000, else `localhost:8000`), device
+  auth (`POST /auth/device`) with the token persisted in `localStorage`, REST
+  helpers (`me`/`balance`/`post`/`get`/`del`), a readiness probe, and the SSE
+  reader (fetch + stream reader; parses `meta`/`token`/`done`/`usage`/`error`).
+- `adapter.js` — the data-source chooser (`window.QriouslyContent`). `init()`
+  picks **api** (auth + balance succeed) or **mock** (`?demo=1`, or the API is
+  unreachable) and reports the mode + balance. `startRoot(question, lens, hooks)`
+  and `streamBranch(context, hooks)` present one streaming interface; hooks are
+  `onToken`/`onMeta`/`onDone`/`onUsage`/`idempotencyKey`. Mock uses `content.js`;
+  api does `POST /threads` / `POST /generate` then the SSE stream. Persistence
+  helpers (api-only): `restoreThread(id)` → `GET /threads/{id}`, `saveNote(...)`
+  → `POST /threads/{id}/notes`, `deleteNote(id)` → `DELETE /notes/{id}`. Errors
+  carry `.status` (402 → out-of-credits, 422 → blocked) for the node retry UI.
 - `script.js` — all behavior. `state = { lens, question, nodes, rootId, order,
-  activeId, counter, toolbarContext, marks, notes }`. Entry: `startReader()`
-  (first question) and `addQuestion()` (later questions from the composer).
-  Actions: `createSection()` (routes dives/asks to `diveHost(parent)` and asides
-  to `#sideList`) / `createAsk()` → `registerMark()` → `applyMarks()`. Rail:
-  `renderSide()` / `updateActions()` / `focusSection()`. Sections:
+  activeId, counter, toolbarContext, marks, notes, threadId, credits, ... }`.
+  Entry: `startReader()` (first question; creates the thread via `startRoot`) and
+  `addQuestion()` (later questions from the composer). Sessions persist: the
+  thread id is kept in `localStorage` and `restoreSession(snapshot)` rebuilds a
+  thread from `GET /threads/{id}` with no generation (used on boot). Sections are
+  **shell-first**: `createSection()` (routes dives/asks to `diveHost(parent)` and
+  asides to `#sideList`) / `createAsk()` build the DOM synchronously, then
+  `fillContent()` streams tokens into `startBodyStream()` and settles
+  title/read-time on `done`; both `createSection`/`addQuestion` take a `preset`
+  for the restore path (render a `done` body, skip streaming).
+  Rail: `renderSide()` / `updateActions()` / `focusSection()`. Sections:
   `toggleSection()` / `removeSection()` (removal walks the graph via
   `descendantIds()`). Anchors/marks in `decorateAnchor()`; toolbar + results menu
   in `showToolbar()` / `renderToolbarResults()` / `performAction()`; trail in
   `renderTrail()` / `rootOf()`; `bloomAt()` is the only remaining
-  experience-layer effect. Lens/theme/notes/composer are here too.
-- `content.js` — the mock generator. `SEED_ROOT.body` is the answer text
-  (`**phrase**` marks curated anchors). `LIBRARY` maps `normalizeKey(phrase)` →
-  `{ dive, eli5, example, define }` bodies. `generateNode(parent, anchor, kind,
-  lens)` returns `{ title, body, citations, estReadSeconds }` and falls back to
-  `synthesize()`; `generateRoot(question, lens)` answers a brand-new question;
-  `generateAsk(parent, anchor, question, lens)` answers a scoped free-text ask.
-  **Swap these functions for a real LLM behind the same signatures.**
+  experience-layer effect. Credits: `setCredits()` / `onGenerationMeta()` /
+  `onGenerationUsage()` (optimistic decrement, reconcile on `usage`, reuse shown);
+  failures render inline via `renderNodeError()` with a retry that reuses the
+  node's idempotency key (`node.idemKey`). Notes are session-scoped: `saveNote()`
+  POSTs through the adapter and `renderNotes()` deletes via `DELETE /notes/{id}`.
+  Lens/theme/notes/composer are here too.
+- `content.js` — the **offline mock generator** kept behind its original
+  signatures (`generateNode`/`generateRoot`/`generateAsk`, called by
+  `adapter.js`). `SEED_ROOT.body` is the answer text (`**phrase**` marks curated
+  anchors). `LIBRARY` maps `normalizeKey(phrase)` → `{ dive, eli5, example,
+  define }` bodies; `synthesize()` is the fallback.
 - `styles.css` — tokens in `:root` / `html[data-theme="dark|light"]`. Key
   selectors: `.anchor`/`.anchor-icon`, `.action-section`/`.as-*` (dives/asks),
   `.question-section` (questions), `.side-list`/`.side-card` (asides),

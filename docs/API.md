@@ -184,14 +184,27 @@ marked `error` with an inline retry affordance. Retry reuses the same
 ## 5. Notebook
 
 ### `POST /threads/{id}/notes`
+A note is span-anchored. Anchor it either to an existing span, or to a source
+node plus the saved phrase — in which case the phrase is materialized as a
+`Span` (reused if the same phrase was already saved from that node):
 ```json
 { "span_id": "uuid", "text": "optional override", "tags": ["light"] }
+{ "source_node_id": "uuid", "text": "scattered blue light", "context": "Why is the sky blue?" }
 ```
+`text` defaults to the span's text and `context` to its source node's title.
+Missing both anchors → `400`.
 
 ### `GET /threads/{id}/notes`
+Cursor-paginated (`?cursor=&limit=`); returns `{results, next}`.
+
 ### `PATCH /notes/{id}` · `DELETE /notes/{id}`
 ### `GET /threads/{id}/outline`
 Returns markdown (trail headings + notes) for the "copy as outline" action.
+
+The client is **session-scoped**: on boot it restores the last thread from
+`GET /threads/{id}` (id kept in `localStorage`) and re-renders it **without
+generating**, so a refresh never re-charges. Saving/removing a note calls these
+endpoints; `?demo=1`/offline keeps notes in memory only.
 
 ---
 

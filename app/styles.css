@@ -792,11 +792,17 @@ a {
 
 .as-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   margin-bottom: 6px;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.as-toggle,
+.as-source,
+.as-remove {
+  align-self: center;
 }
 
 .as-toggle {
@@ -841,9 +847,11 @@ a {
   font-style: italic;
   font-size: 0.98rem;
   color: var(--ink-dim);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
   cursor: pointer;
   transition: color 0.18s var(--ease);
 }
@@ -899,6 +907,34 @@ a {
   font-size: 1.04rem;
   line-height: 1.72;
   color: var(--ink);
+}
+
+.reading-body p,
+.as-body p {
+  margin: 0 0 0.85em;
+}
+
+.reading-body p:last-child,
+.as-body p:last-child {
+  margin-bottom: 0;
+}
+
+.reading-body ul,
+.reading-body ol,
+.as-body ul,
+.as-body ol {
+  margin: 0.2em 0 0.75em;
+  padding-left: 1.25em;
+}
+
+.reading-body li + li,
+.as-body li + li {
+  margin-top: 0.3em;
+}
+
+.reading-body li::marker,
+.as-body li::marker {
+  color: var(--accent);
 }
 
 .as-sections {
@@ -969,7 +1005,7 @@ a {
 
 .toolbar-result {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   width: 100%;
   padding: 7px 9px;
@@ -988,6 +1024,7 @@ a {
 
 .tr-loc {
   flex: none;
+  align-self: center;
   font-size: 0.8rem;
   color: var(--ink-faint);
 }
@@ -1372,6 +1409,22 @@ a {
   50% { opacity: 0; }
 }
 
+@media (min-width: 1200px) {
+  .reader-grid,
+  .composer-inner {
+    max-width: 1340px;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  }
+}
+
+@media (min-width: 1560px) {
+  .reader-grid,
+  .composer-inner {
+    max-width: 1440px;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
+  }
+}
+
 @media (max-width: 1000px) {
   .reader-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1427,4 +1480,109 @@ a {
     transition-duration: 0.001ms !important;
     transition-delay: 0s !important;
   }
+}
+
+.credit-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.credit-meter b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.credit-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.credit-meter.low .credit-dot {
+  background: var(--k-example);
+  box-shadow: none;
+}
+
+.credit-meter.empty {
+  border-color: var(--k-note);
+  color: var(--k-note);
+}
+
+.credit-meter.empty b {
+  color: var(--k-note);
+}
+
+.credit-meter.empty .credit-dot {
+  background: var(--k-note);
+  box-shadow: none;
+}
+
+.credit-meter.reused {
+  animation: creditPulse 0.5s var(--ease);
+}
+
+@keyframes creditPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.conn-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.conn-badge.live {
+  color: var(--accent-3);
+  border-color: color-mix(in srgb, var(--accent-3) 40%, transparent);
+}
+
+.node-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 2px;
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+}
+
+.node-error[data-kind="blocked"] p {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.node-retry {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.node-retry:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }

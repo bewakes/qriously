@@ -7,10 +7,11 @@ from uuid import UUID
 from django.db import connection, transaction
 
 from content.models import ContentVariant
+from content.services import upsert_concept
 from core.constants import lens_bucket as make_lens_bucket
 from core.constants import normalize_lens
 
-from .models import Node, NodeStatus, Span, Thread
+from .models import Node, NodeStatus, Note, Span, Thread
 
 if TYPE_CHECKING:
     from accounts.models import User
@@ -67,6 +68,30 @@ def create_node(
     return node
 
 
+@transaction.atomic
+def get_or_create_span(thread: Thread, source_node: Node, text: str) -> Span:
+    """Return the span for a phrase saved from ``source_node``, creating it once.
+
+    A saved note is span-anchored: the phrase becomes a ``Span`` (reused if the
+    same phrase was already saved from the same node) so notes and branches share
+    one anchor.
+    """
+    clean = " ".join(text.split())
+    if not clean:
+        raise ValueError("span text cannot be empty")
+    existing = Span.objects.filter(
+        thread=thread, source_node=source_node, text=clean
+    ).first()
+    if existing is not None:
+        return existing
+    return Span.objects.create(
+        thread=thread,
+        source_node=source_node,
+        text=clean,
+        concept=upsert_concept(clean),
+    )
+
+
 def descendant_ids(node: Node) -> list[UUID]:
     """Return the ids of ``node`` and every node beneath it (recursive CTE)."""
     table = Node._meta.db_table
@@ -99,3 +124,30 @@ def thread_snapshot(thread: Thread) -> dict[str, object]:
         "spans": list(thread.spans.all()),
         "notes": list(thread.notes.all()),
     }
+
+
+def render_outline(thread: Thread) -> str:
+    """Render the trail (node headings) and saved notes as markdown."""
+    nodes = list(thread.nodes.order_by("depth", "order", "created_at"))
+    children: dict[UUID | None, list[Node]] = {}
+    for node in nodes:
+        children.setdefault(node.parent_id, []).append(node)
+
+    notes_by_node: dict[UUID, list[Note]] = {}
+    for note in thread.notes.select_related("span"):
+        notes_by_node.setdefault(note.span.source_node_id, []).append(note)
+
+    lines: list[str] = [f"# {thread.title or 'Untitled thread'}", ""]
+
+    def walk(node: Node, level: int) -> None:
+        heading = node.title or node.anchor_text or node.kind
+        lines.append(f"{'#' * min(level, 6)} {heading}")
+        for note in notes_by_node.get(node.id, []):
+            lines.append(f"- {note.text}")
+        lines.append("")
+        for child in children.get(node.id, []):
+            walk(child, level + 1)
+
+    for root in children.get(None, []):
+        walk(root, 2)
+    return "\n".join(lines).rstrip() + "\n"

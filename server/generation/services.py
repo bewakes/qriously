@@ -50,8 +50,16 @@ def prepare_generation(
 
     Returns a queued GenerationJob. Raises ContentBlocked before any spend if
     screening denies the query, and InsufficientCredits if the wallet cannot
-    cover the price.
+    cover the price. Replaying the same idempotency key returns the original job
+    without opening a second request or spend.
     """
+    if idempotency_key:
+        existing = GenerationJob.objects.filter(
+            idempotency_key=idempotency_key
+        ).first()
+        if existing is not None:
+            return existing
+
     wallet = get_wallet(user)
     effective_lens = normalize_lens(lens if lens is not None else thread.lens)
     text = (question or span_text or "").strip()
@@ -193,6 +201,20 @@ async def stream_generation(
     )
     yield ("done", payload["done"])
     yield ("usage", payload["usage"])
+
+
+def job_descriptor(job: GenerationJob) -> dict[str, object]:
+    """The JSON shape returned by ``POST /generate`` (see docs/API.md §4)."""
+    return {
+        "request_id": str(job.request_id),
+        "job_id": str(job.id),
+        "node_id": str(job.node_id),
+        "cache_hit": job.cache_hit,
+        "lookup_layer": job.lookup_layer,
+        "cost": job.cost,
+        "balance": job.wallet.balance,
+        "stream_url": f"/api/v1/generate/{job.id}/stream",
+    }
 
 
 def _elapsed_ms(started: float) -> int:

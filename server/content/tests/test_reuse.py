@@ -4,6 +4,7 @@ from content.models import Kind, LookupLayer
 from content.reuse import find_variant
 from content.services import create_variant, upsert_concept
 from content.text import context_fingerprint
+from core.constants import PROMPT_VERSION
 
 LENS = {"familiarity": "basics", "depth": "solid", "style": "plain", "goal": "curious"}
 BUCKET = "basics:solid:plain:curious"
@@ -14,7 +15,9 @@ def concept(db):
     return upsert_concept("Rayleigh scattering")
 
 
-def make_variant(concept, *, context_key="", kind=Kind.DIVE, lens=None, version="v1"):
+def make_variant(
+    concept, *, context_key="", kind=Kind.DIVE, lens=None, version=PROMPT_VERSION
+):
     return create_variant(
         concept=concept,
         kind=kind,
