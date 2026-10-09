@@ -909,6 +909,34 @@ a {
   color: var(--ink);
 }
 
+.reading-body p,
+.as-body p {
+  margin: 0 0 0.85em;
+}
+
+.reading-body p:last-child,
+.as-body p:last-child {
+  margin-bottom: 0;
+}
+
+.reading-body ul,
+.reading-body ol,
+.as-body ul,
+.as-body ol {
+  margin: 0.2em 0 0.75em;
+  padding-left: 1.25em;
+}
+
+.reading-body li + li,
+.as-body li + li {
+  margin-top: 0.3em;
+}
+
+.reading-body li::marker,
+.as-body li::marker {
+  color: var(--accent);
+}
+
 .as-sections {
   margin-left: 0;
 }

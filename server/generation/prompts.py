@@ -22,6 +22,18 @@ DEFINE_LENGTH_RULE = (
     "surrounding answer is — a definition is never an essay about the term."
 )
 
+EXAMPLE_ANCHOR_RULE = (
+    "Wrap only the one or two terms that genuinely merit their own explanation "
+    "in double asterisks; most examples need no markers."
+)
+
+EXAMPLE_LENGTH_RULE = (
+    "Answer with a markdown list of between 2 and 4 concrete examples, one per "
+    "line, each starting with '- '. Keep every example to a single short "
+    "sentence. Do this regardless of the reader's depth preference or how long "
+    "the surrounding answer is — examples are a short list, never a paragraph."
+)
+
 TRUST_RULE = (
     "Do not invent citations and do not claim that any source has been "
     "checked. When you are unsure, say so plainly rather than fabricating a "
@@ -61,7 +73,7 @@ KIND_GUIDANCE = {
     "root": "Answer the reader's opening question.",
     "dive": "Explain the highlighted phrase in its own right, in context.",
     "eli5": "Explain it as you would to a bright five-year-old.",
-    "example": "Explain mainly through concrete examples.",
+    "example": "Illustrate with a short list of concrete examples.",
     "define": "Give a short, precise definition with no preamble.",
     "ask": "Answer the reader's follow-up question about the passage.",
 }
@@ -70,18 +82,28 @@ KIND_GUIDANCE = {
 def build_system_prompt(lens: Mapping[str, str] | None, kind: str) -> str:
     """Return the lens- and kind-aware system prompt for a generation request."""
     normalized = normalize_lens(lens)
-    is_define = kind == "define"
+    length_rule, anchor_rule = _kind_rules(kind, normalized["depth"])
     sections = [
         "You are Qriously, an explanation engine inside a learning reader.",
         KIND_GUIDANCE.get(kind, KIND_GUIDANCE["root"]),
         FAMILIARITY_GUIDANCE[normalized["familiarity"]],
-        DEFINE_LENGTH_RULE if is_define else DEPTH_GUIDANCE[normalized["depth"]],
+        length_rule,
         STYLE_GUIDANCE[normalized["style"]],
         GOAL_GUIDANCE[normalized["goal"]],
-        DEFINE_ANCHOR_RULE if is_define else ANCHOR_RULE,
+        anchor_rule,
         TRUST_RULE,
     ]
     return "\n".join(sections)
+
+
+def _kind_rules(kind: str, depth: str) -> tuple[str, str]:
+    """Pick the length and anchor rules for a kind, overriding depth where the
+    kind has a fixed shape (a definition or a short list of examples)."""
+    if kind == "define":
+        return DEFINE_LENGTH_RULE, DEFINE_ANCHOR_RULE
+    if kind == "example":
+        return EXAMPLE_LENGTH_RULE, EXAMPLE_ANCHOR_RULE
+    return DEPTH_GUIDANCE[depth], ANCHOR_RULE
 
 
 def build_user_prompt(*, text: str, kind: str, context: str | None = None) -> str:

@@ -404,6 +404,17 @@ The visual system is **reading-first**: the prose and the branching structure ca
   `v2` (a new version, never a mutation of cached variants). Deferred and still
   open: rich markdown rendering/formatting, an explicit context layer, the
   question-history rail, custom notes, and the credit-meter pre-decrement.
+- **v14:** `example` gets a fixed shape (feedback 14): a short markdown list of
+  **2–4 one-line examples**, independent of the reader's depth — depth no longer
+  inflates examples into a paragraph. To render that, the body renderer
+  (`renderBody`) now understands a small, deliberate subset of markdown:
+  blank-line-separated **paragraphs** and `-`/`1.` **lists**, with `**anchors**`
+  working inside list items and paragraphs. Nothing is highlighted until acted on
+  (unchanged). This is the first slice of the pending rich-markdown work
+  (feedback 1); headings/emphasis/links are still open, and the prompt does not
+  yet request structured formatting for long general answers. Side/section
+  headers were also switched to **baseline alignment** so the kind label and its
+  phrase share a baseline. Backend: `PROMPT_VERSION` → `v3`.
 
 ## 21. Implementation map
 

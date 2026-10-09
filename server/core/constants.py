@@ -2,7 +2,7 @@ from collections.abc import Mapping
 
 DEFAULT_MODEL = "deepseek-flash"
 
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v3"
 
 LLM_TIMEOUT_SECONDS = 60
 LLM_MAX_RETRIES = 2

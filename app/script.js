@@ -93,11 +93,66 @@ function nodeLabel(node) {
   return node.kind === "ask" ? node.title : node.anchor;
 }
 
+function inlineBody(text) {
+  let out = "";
+  let last = 0;
+  const re = /\*\*(.+?)\*\*/g;
+  let match;
+  while ((match = re.exec(text))) {
+    out += escapeHtml(text.slice(last, match.index));
+    out += `<span class="anchor" data-term="${escapeAttr(match[1])}">${escapeHtml(match[1])}</span>`;
+    last = re.lastIndex;
+  }
+  return out + escapeHtml(text.slice(last));
+}
+
 function renderBody(raw) {
-  return escapeHtml(raw).replace(
-    /\*\*(.+?)\*\*/g,
-    (m, t) => `<span class="anchor" data-term="${escapeAttr(t)}">${t}</span>`
-  );
+  const lines = String(raw).split("\n");
+  const html = [];
+  let paragraph = [];
+  let listTag = null;
+
+  const closeList = () => {
+    if (listTag) {
+      html.push(`</${listTag}>`);
+      listTag = null;
+    }
+  };
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      html.push(`<p>${inlineBody(paragraph.join(" "))}</p>`);
+      paragraph = [];
+    }
+  };
+
+  lines.forEach((line) => {
+    const text = line.trim();
+    if (!text) {
+      flushParagraph();
+      closeList();
+      return;
+    }
+    const bullet = /^[-*]\s+(.*)$/.exec(text);
+    const numbered = /^\d+[.)]\s+(.*)$/.exec(text);
+    const item = bullet ? bullet[1] : numbered ? numbered[1] : null;
+    if (item !== null) {
+      flushParagraph();
+      const tag = bullet ? "ul" : "ol";
+      if (listTag !== tag) {
+        closeList();
+        html.push(`<${tag}>`);
+        listTag = tag;
+      }
+      html.push(`<li>${inlineBody(item)}</li>`);
+      return;
+    }
+    closeList();
+    paragraph.push(text);
+  });
+
+  flushParagraph();
+  closeList();
+  return html.join("");
 }
 
 function startBodyStream(el) {
