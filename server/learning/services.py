@@ -7,6 +7,7 @@ from uuid import UUID
 from django.db import connection, transaction
 
 from content.models import ContentVariant
+from content.services import upsert_concept
 from core.constants import lens_bucket as make_lens_bucket
 from core.constants import normalize_lens
 
@@ -65,6 +66,30 @@ def create_node(
         node.root = node
         node.save(update_fields=["root"])
     return node
+
+
+@transaction.atomic
+def get_or_create_span(thread: Thread, source_node: Node, text: str) -> Span:
+    """Return the span for a phrase saved from ``source_node``, creating it once.
+
+    A saved note is span-anchored: the phrase becomes a ``Span`` (reused if the
+    same phrase was already saved from the same node) so notes and branches share
+    one anchor.
+    """
+    clean = " ".join(text.split())
+    if not clean:
+        raise ValueError("span text cannot be empty")
+    existing = Span.objects.filter(
+        thread=thread, source_node=source_node, text=clean
+    ).first()
+    if existing is not None:
+        return existing
+    return Span.objects.create(
+        thread=thread,
+        source_node=source_node,
+        text=clean,
+        concept=upsert_concept(clean),
+    )
 
 
 def descendant_ids(node: Node) -> list[UUID]:

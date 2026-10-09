@@ -18,6 +18,7 @@ from generation.api import GenerateSerializer, prepare_response
 from .models import Node, NodeStatus, Note, Span, Thread
 from .services import (
     create_thread,
+    get_or_create_span,
     remove_subtree,
     render_outline,
     thread_snapshot,
@@ -238,9 +239,12 @@ class NoteListCreateView(APIView):
 
     def post(self, request: Request, thread_id: str) -> Response:
         thread = _thread_or_404(request.user, thread_id)
-        span = get_object_or_404(
-            Span, id=request.data.get("span_id"), thread=thread
-        )
+        span = self._resolve_span(request, thread)
+        if span is None:
+            return Response(
+                {"error": "span_id or source_node_id+text is required"},
+                status=400,
+            )
         text = (request.data.get("text") or "").strip() or span.text
         context = (request.data.get("context") or "").strip() or span.source_node.title
         tags = request.data.get("tags") or []
@@ -248,6 +252,18 @@ class NoteListCreateView(APIView):
             thread=thread, span=span, text=text, context=context, tags=tags
         )
         return Response(NoteSerializer(note).data, status=201)
+
+    @staticmethod
+    def _resolve_span(request: Request, thread: Thread) -> Span | None:
+        span_id = request.data.get("span_id")
+        if span_id:
+            return get_object_or_404(Span, id=span_id, thread=thread)
+        source_node_id = request.data.get("source_node_id")
+        text = (request.data.get("text") or "").strip()
+        if not source_node_id or not text:
+            return None
+        source_node = get_object_or_404(Node, id=source_node_id, thread=thread)
+        return get_or_create_span(thread, source_node, text)
 
 
 class NoteDetailView(APIView):

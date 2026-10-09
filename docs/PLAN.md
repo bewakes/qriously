@@ -122,10 +122,11 @@ cache and is charged only the small fraction (with `vendor_cost_micros` null). �
 ## Phase 4 — Frontend wiring & component extraction
 
 **Status: in progress.** The app is wired to the API end-to-end (device auth,
-streamed generation, credit meter, inline errors/retry, offline fallback) as two
-plain globals — `app/api.js` and `app/adapter.js` — chosen over an `src/`
-ES-module tree to keep the no-build, offline, `file://`-safe ethos (spec v12).
-The full component extraction and token split are deferred.
+streamed generation, credit meter, inline errors/retry, offline fallback, plus
+session restore and server-backed notes) as two plain globals — `app/api.js` and
+`app/adapter.js` — chosen over an `src/` ES-module tree to keep the no-build,
+offline, `file://`-safe ethos (spec v12). The full component extraction and token
+split are deferred.
 
 - [x] `api.js` (REST client, device auth + token persistence, SSE reader) and
       `adapter.js` (API-vs-mock selection, streaming interface); `content.js`
@@ -146,11 +147,17 @@ The full component extraction and token split are deferred.
       v12; the globals deliver the same outcome without a build step.)
 - [ ] Theming: split tokens into `theme/tokens.css`; reserve `[data-skin]`.
       (Deferred.)
-- [ ] Server-side notes / thread-snapshot restore. (Deferred; notes stay local.)
+- [x] Server-side notes / thread-snapshot restore. Notes are session-scoped and
+      span-anchored (`POST /threads/{id}/notes` accepting `source_node_id`+`text`,
+      which materializes a `Span` via `get_or_create_span`); the app keeps the
+      thread id in `localStorage` and rebuilds the reader from
+      `GET /threads/{id}` on boot **without generating**, so a refresh no longer
+      re-charges. `?demo=1`/offline keeps the in-memory notebook. See spec v15.
 
 **Done when:** the app runs end-to-end against the backend with the same feel;
 `?demo=1` still works with no server. ✅ verified live (device auth → streamed
-generation → fractional cache-hit charges reflected in the meter).
+generation → fractional cache-hit charges reflected in the meter; refresh
+restores the session and its notes with no new charge).
 
 ---
 

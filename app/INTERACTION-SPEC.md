@@ -415,6 +415,19 @@ The visual system is **reading-first**: the prose and the branching structure ca
   yet request structured formatting for long general answers. Side/section
   headers were also switched to **baseline alignment** so the kind label and its
   phrase share a baseline. Backend: `PROMPT_VERSION` → `v3`.
+- **v15 (persistence + restore):** the notebook is now **session-scoped and
+  server-backed**. Each note belongs to the session (`Note.thread`) and is
+  span-anchored; saving a phrase that was never branched materializes a `Span`
+  on demand (`learning.services.get_or_create_span`) instead of inventing a
+  free-form note. The reader **auto-resumes the last session on boot**: the app
+  keeps the thread id in `localStorage` and rebuilds the reading sheet, dives,
+  anchor marks and notes from `GET /threads/{id}` **without generating**, so a
+  refresh no longer re-charges (the earlier phantom debit was a cache-hit charge
+  for a re-asked question, since the session had been lost). Cache hits are still
+  charged the configured fraction (locked decision 5) for genuinely new requests.
+  `?demo=1`/offline keeps the in-memory notebook. Rich markdown, the
+  question-history rail (#11), free-form notes (#12/#13) and the credit-meter
+  pre-decrement (#8) remain open.
 
 ## 21. Implementation map
 
@@ -426,22 +439,28 @@ The visual system is **reading-first**: the prose and the branching structure ca
 - `api.js` — low-level API client as a plain global (`window.QriouslyAPI`): base
   URL resolution (`?api=`, same-origin on :8000, else `localhost:8000`), device
   auth (`POST /auth/device`) with the token persisted in `localStorage`, REST
-  helpers (`me`/`balance`/`post`/`get`), a readiness probe, and the SSE reader
-  (fetch + stream reader; parses `meta`/`token`/`done`/`usage`/`error`).
+  helpers (`me`/`balance`/`post`/`get`/`del`), a readiness probe, and the SSE
+  reader (fetch + stream reader; parses `meta`/`token`/`done`/`usage`/`error`).
 - `adapter.js` — the data-source chooser (`window.QriouslyContent`). `init()`
   picks **api** (auth + balance succeed) or **mock** (`?demo=1`, or the API is
   unreachable) and reports the mode + balance. `startRoot(question, lens, hooks)`
   and `streamBranch(context, hooks)` present one streaming interface; hooks are
   `onToken`/`onMeta`/`onDone`/`onUsage`/`idempotencyKey`. Mock uses `content.js`;
-  api does `POST /threads` / `POST /generate` then the SSE stream. Errors carry
-  `.status` (402 → out-of-credits, 422 → blocked) for the node retry UI.
+  api does `POST /threads` / `POST /generate` then the SSE stream. Persistence
+  helpers (api-only): `restoreThread(id)` → `GET /threads/{id}`, `saveNote(...)`
+  → `POST /threads/{id}/notes`, `deleteNote(id)` → `DELETE /notes/{id}`. Errors
+  carry `.status` (402 → out-of-credits, 422 → blocked) for the node retry UI.
 - `script.js` — all behavior. `state = { lens, question, nodes, rootId, order,
   activeId, counter, toolbarContext, marks, notes, threadId, credits, ... }`.
   Entry: `startReader()` (first question; creates the thread via `startRoot`) and
-  `addQuestion()` (later questions from the composer). Sections are **shell-first**:
-  `createSection()` (routes dives/asks to `diveHost(parent)` and asides to
-  `#sideList`) / `createAsk()` build the DOM synchronously, then `fillContent()`
-  streams tokens into `startBodyStream()` and settles title/read-time on `done`.
+  `addQuestion()` (later questions from the composer). Sessions persist: the
+  thread id is kept in `localStorage` and `restoreSession(snapshot)` rebuilds a
+  thread from `GET /threads/{id}` with no generation (used on boot). Sections are
+  **shell-first**: `createSection()` (routes dives/asks to `diveHost(parent)` and
+  asides to `#sideList`) / `createAsk()` build the DOM synchronously, then
+  `fillContent()` streams tokens into `startBodyStream()` and settles
+  title/read-time on `done`; both `createSection`/`addQuestion` take a `preset`
+  for the restore path (render a `done` body, skip streaming).
   Rail: `renderSide()` / `updateActions()` / `focusSection()`. Sections:
   `toggleSection()` / `removeSection()` (removal walks the graph via
   `descendantIds()`). Anchors/marks in `decorateAnchor()`; toolbar + results menu
@@ -450,7 +469,9 @@ The visual system is **reading-first**: the prose and the branching structure ca
   experience-layer effect. Credits: `setCredits()` / `onGenerationMeta()` /
   `onGenerationUsage()` (optimistic decrement, reconcile on `usage`, reuse shown);
   failures render inline via `renderNodeError()` with a retry that reuses the
-  node's idempotency key (`node.idemKey`). Lens/theme/notes/composer are here too.
+  node's idempotency key (`node.idemKey`). Notes are session-scoped: `saveNote()`
+  POSTs through the adapter and `renderNotes()` deletes via `DELETE /notes/{id}`.
+  Lens/theme/notes/composer are here too.
 - `content.js` — the **offline mock generator** kept behind its original
   signatures (`generateNode`/`generateRoot`/`generateAsk`, called by
   `adapter.js`). `SEED_ROOT.body` is the answer text (`**phrase**` marks curated

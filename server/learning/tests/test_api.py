@@ -181,6 +181,49 @@ def test_notes_crud(client, token):
 
 
 @pytest.mark.django_db
+def test_note_from_node_and_text_creates_and_reuses_span(client, token):
+    created = make_root(client, token)
+    thread_id = created["thread"]["id"]
+    url = f"/api/v1/threads/{thread_id}/notes"
+
+    first = post(
+        client,
+        token,
+        url,
+        {"source_node_id": created["node_id"], "text": "scattered blue light"},
+    )
+    assert first.status_code == 201
+    assert first.json()["text"] == "scattered blue light"
+
+    second = post(
+        client,
+        token,
+        url,
+        {"source_node_id": created["node_id"], "text": "scattered blue light"},
+    )
+    assert second.status_code == 201
+
+    snapshot = client.get(
+        f"/api/v1/threads/{thread_id}", headers=auth(token)
+    ).json()
+    assert len(snapshot["spans"]) == 1
+    assert len(snapshot["notes"]) == 2
+
+
+@pytest.mark.django_db
+def test_note_requires_span_or_node_and_text(client, token):
+    created = make_root(client, token)
+    thread_id = created["thread"]["id"]
+    response = post(
+        client,
+        token,
+        f"/api/v1/threads/{thread_id}/notes",
+        {"context": "missing anchor"},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
 def test_outline_includes_headings_and_notes(client, token):
     created = make_root(client, token)
     thread_id = created["thread"]["id"]

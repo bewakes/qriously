@@ -277,6 +277,12 @@ Removing a node removes its subtree (thread edges) only — never variants.
 | `tags` | text[] | |
 | `created_at`, `updated_at` | timestamptz | |
 
+Notes are session-scoped (`thread`), so a notebook is "everything saved in this
+session" — there is no global across-session pile. A note is span-anchored: when
+the user saves a phrase that was never branched, the service materializes the
+`Span` on demand (`get_or_create_span`, reused per source node) rather than
+adding a free-form note. Free-form / question-level notes are deferred.
+
 ---
 
 ## 5. Generation bookkeeping (`generation`)

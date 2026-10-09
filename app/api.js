@@ -100,6 +100,11 @@
     return request("POST", path, body, headers);
   }
 
+  async function del(path) {
+    await ensureAuth();
+    return request("DELETE", path);
+  }
+
   async function probe(timeoutMs) {
     var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     var timer = setTimeout(function () {
@@ -187,6 +192,7 @@
     balance: balance,
     get: get,
     post: post,
+    del: del,
     probe: probe,
     stream: stream,
   };

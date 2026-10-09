@@ -64,6 +64,23 @@ const state = {
 
 const content = window.QriouslyContent;
 
+const THREAD_KEY = "qriously-thread-id";
+
+function readThreadId() {
+  try {
+    return localStorage.getItem(THREAD_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+function persistThreadId(id) {
+  try {
+    if (id) localStorage.setItem(THREAD_KEY, id);
+    else localStorage.removeItem(THREAD_KEY);
+  } catch (e) {}
+}
+
 function uuid() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -298,6 +315,7 @@ function createSection(containerId, anchor, kind, options) {
   const clean = anchor.replace(/\s+/g, " ").trim();
   if (!clean) return null;
 
+  const preset = options && options.preset;
   const depth = parent.depth + 1;
   const id = "a" + ++state.counter;
   const question = options && options.question ? options.question : null;
@@ -308,13 +326,13 @@ function createSection(containerId, anchor, kind, options) {
     kind,
     anchor: clean,
     question,
-    title: kind === "ask" && question ? question : clean,
+    title: preset && preset.title ? preset.title : kind === "ask" && question ? question : clean,
     body: "",
     citations: [],
     estReadSeconds: 0,
     collapsed: false,
     status: "streaming",
-    remoteId: null,
+    remoteId: preset ? preset.id : null,
     idemKey: uuid(),
   };
   state.nodes.set(id, node);
@@ -349,8 +367,19 @@ function createSection(containerId, anchor, kind, options) {
   state.order.push(id);
 
   registerMark(containerId, clean, kind, id);
-  bloomAt(anchorRect(containerId, clean));
 
+  if (preset) {
+    node.body = preset.body || "";
+    node.citations = preset.citations || [];
+    node.estReadSeconds = preset.est_read_seconds || 0;
+    node.status = "done";
+    node.bodyEl.innerHTML = renderBody(node.body);
+    if (preset.collapsed) toggleSection(node);
+    updateStatus();
+    return node;
+  }
+
+  bloomAt(anchorRect(containerId, clean));
   setActive(id);
   updateStatus();
   requestAnimationFrame(() => el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" }));
@@ -364,9 +393,10 @@ function createAsk(containerId, anchor, question) {
   return createSection(containerId, anchor, "ask", { question: clean });
 }
 
-function addQuestion(question) {
+function addQuestion(question, options) {
   const clean = question.replace(/\s+/g, " ").trim();
   if (!clean) return null;
+  const preset = options && options.preset;
   const id = "q" + ++state.counter;
   const node = {
     id,
@@ -376,13 +406,13 @@ function addQuestion(question) {
     isRoot: true,
     anchor: clean,
     question: clean,
-    title: clean,
+    title: preset && preset.title ? preset.title : clean,
     body: "",
     citations: [],
     estReadSeconds: 0,
     collapsed: false,
     status: "streaming",
-    remoteId: null,
+    remoteId: preset ? preset.id : null,
     idemKey: uuid(),
   };
   state.nodes.set(id, node);
@@ -407,6 +437,17 @@ function addQuestion(question) {
   node.sectionsEl = el.querySelector(".as-sections");
   readingSections.appendChild(el);
   state.order.push(id);
+
+  if (preset) {
+    node.body = preset.body || "";
+    node.citations = preset.citations || [];
+    node.estReadSeconds = preset.est_read_seconds || 0;
+    node.status = "done";
+    node.bodyEl.innerHTML = renderBody(node.body);
+    if (preset.collapsed) toggleSection(node);
+    updateStatus();
+    return node;
+  }
 
   setActive(id);
   updateStatus();
@@ -456,7 +497,10 @@ function fillContent(node) {
       node.citations = data.citations || [];
       node.estReadSeconds = data.estReadSeconds || 0;
       node.remoteId = data.nodeId || node.remoteId;
-      if (node.isRoot && data.threadId) state.threadId = data.threadId;
+      if (node.isRoot && data.threadId) {
+        state.threadId = data.threadId;
+        persistThreadId(data.threadId);
+      }
       applyMarks(node.id);
       updateStatus();
       renderTrail();
@@ -791,10 +835,18 @@ function performAction(kind) {
 function saveNote(text, containerId) {
   const node = state.nodes.get(containerId);
   const context = node ? (node.isRoot ? readingTitle.textContent : node.title) : readingTitle.textContent;
-  state.notes.unshift({ id: "n" + Date.now(), text: text.trim(), context });
+  const note = { id: "n" + Date.now(), text: text.trim(), context, remoteId: null };
+  state.notes.unshift(note);
   renderNotes();
   updateNoteCount();
   toast("Saved to notebook");
+
+  const remoteNodeId = node ? node.remoteId : null;
+  if (state.threadId && remoteNodeId) {
+    content.saveNote({ threadId: state.threadId, remoteNodeId, text: note.text, context }).then((saved) => {
+      if (saved && saved.id) note.remoteId = saved.id;
+    });
+  }
 }
 
 function updateNoteCount() {
@@ -817,6 +869,7 @@ function renderNotes() {
       state.notes = state.notes.filter((n) => n.id !== note.id);
       renderNotes();
       updateNoteCount();
+      if (note.remoteId) content.deleteNote(note.remoteId);
     });
     li.appendChild(del);
     noteList.appendChild(li);
@@ -841,6 +894,7 @@ function exportNotes() {
 function startReader(question) {
   state.question = question;
   state.threadId = null;
+  persistThreadId(null);
   home.hidden = true;
   reader.hidden = false;
   lensChip.hidden = false;
@@ -890,6 +944,113 @@ function startReader(question) {
   updateStatus();
   window.scrollTo({ top: 0, behavior: "auto" });
   fillContent(rootNode);
+}
+
+function restoreSession(snapshot) {
+  const nodes = (snapshot && snapshot.nodes) || [];
+  if (!nodes.length) return false;
+  const thread = snapshot.thread || {};
+  if (thread.lens && Object.keys(thread.lens).length) state.lens = thread.lens;
+  state.question = thread.title || nodes[0].title || "";
+
+  home.hidden = true;
+  reader.hidden = false;
+  lensChip.hidden = false;
+  lensChipText.textContent = formatLens();
+  composer.hidden = false;
+  composerInput.value = "";
+
+  state.nodes.clear();
+  state.order = [];
+  state.marks = [];
+  state.notes = [];
+  state.activeId = null;
+  state.counter = 0;
+  readingSections.innerHTML = "";
+  sideList.innerHTML = "";
+  actionsEmpty.hidden = false;
+  actionCount.textContent = "0";
+  state.threadId = thread.id || null;
+  persistThreadId(state.threadId);
+
+  const spanById = new Map();
+  (snapshot.spans || []).forEach((span) => spanById.set(span.id, span));
+  const remoteToLocal = new Map();
+
+  const first = nodes.find((n) => !n.parent_id) || nodes[0];
+  const rootNode = {
+    id: "root",
+    parentId: null,
+    depth: 0,
+    kind: first.kind || "root",
+    isRoot: true,
+    anchor: first.anchor_text || first.title || state.question,
+    question: first.title || state.question,
+    title: first.title || state.question,
+    el: document.querySelector(".reading"),
+    sectionsEl: readingSections,
+    bodyEl: readingBody,
+    body: first.body || "",
+    citations: first.citations || [],
+    estReadSeconds: first.est_read_seconds || 0,
+    collapsed: false,
+    status: "done",
+    remoteId: first.id,
+    idemKey: "",
+  };
+  state.nodes.set("root", rootNode);
+  state.rootId = "root";
+  readingTitle.textContent = rootNode.title;
+  readingBody.dataset.nodeId = "root";
+  readingBody.innerHTML = renderBody(rootNode.body);
+  updateReadingMeta(rootNode);
+  remoteToLocal.set(first.id, "root");
+
+  nodes
+    .filter((n) => n.id !== first.id)
+    .forEach((spec) => {
+      const preset = {
+        id: spec.id,
+        title: spec.title,
+        body: spec.body,
+        citations: spec.citations,
+        est_read_seconds: spec.est_read_seconds,
+        collapsed: spec.collapsed,
+      };
+      const anchor = spec.anchor_text || spec.title || spec.kind;
+      let created;
+      if (spec.parent_id) {
+        const parentLocal = remoteToLocal.get(spec.parent_id);
+        if (!parentLocal) return;
+        created = createSection(parentLocal, anchor, spec.kind, {
+          preset,
+          question: spec.kind === "ask" ? spec.title : null,
+        });
+      } else {
+        created = addQuestion(spec.title || anchor || "Question", { preset });
+      }
+      if (created) remoteToLocal.set(spec.id, created.id);
+    });
+
+  (snapshot.notes || []).forEach((note) => {
+    const span = spanById.get(note.span_id);
+    const localId = span ? remoteToLocal.get(span.source_node_id) : null;
+    const localNode = localId ? state.nodes.get(localId) : null;
+    const context =
+      note.context ||
+      (localNode ? (localNode.isRoot ? rootNode.title : localNode.title) : thread.title || "this session");
+    state.notes.push({ id: note.id, text: note.text, context, remoteId: note.id });
+  });
+
+  setActive("root");
+  renderTrail();
+  updateActions();
+  updateStatus();
+  renderSide();
+  renderNotes();
+  updateNoteCount();
+  window.scrollTo({ top: 0, behavior: "auto" });
+  return true;
 }
 
 function openLens(question) {
@@ -1085,6 +1246,13 @@ content.init().then((info) => {
   if (info.mode === "api") {
     showConnection("api");
     setCredits(info.balance);
+    const savedThread = readThreadId();
+    if (savedThread && !params.has("demo")) {
+      content.restoreThread(savedThread).then((snapshot) => {
+        if (snapshot && snapshot.nodes && snapshot.nodes.length) restoreSession(snapshot);
+        else persistThreadId(null);
+      });
+    }
   } else {
     showConnection("mock");
   }

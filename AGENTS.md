@@ -109,12 +109,14 @@ changed several times: margin rail → list+window → inline action sections �
 ### Known limitations / next steps
 
 - The app is wired to the backend (`app/api.js` + `app/adapter.js`): device auth,
-  streamed generation, a credit meter, inline error/retry, and an offline
-  fallback to the mock (`content.js`) selected at boot. `?demo=1` still runs the
-  mock with no server. Phases 1–3 of `docs/PLAN.md` are complete; Phase 4's
-  functional wiring is done, with the `src/` component extraction and token split
-  deferred (spec v12), and server-side notes / thread-snapshot restore not yet
-  built (notes stay local).
+  streamed generation, a credit meter, inline error/retry, session restore and
+  server-backed notes, plus an offline fallback to the mock (`content.js`)
+  selected at boot. `?demo=1` still runs the mock with no server. Phases 1–3 of
+  `docs/PLAN.md` are complete; Phase 4's functional wiring is done (including
+  `GET /threads/{id}` restore and `POST /threads/{id}/notes`), with the `src/`
+  component extraction and token split deferred (spec v12). Notes are
+  **session-scoped** (never a global across-session pile); refresh restores the
+  last thread from `localStorage` without generating (spec v15).
 - Landing and app are not yet connected (landing submit is visual-only).
 - Mobile: the actions rail stacks below the reading sheet; the composer stays
   docked. Not yet a native bottom-sheet.

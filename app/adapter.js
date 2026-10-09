@@ -166,10 +166,51 @@
     });
   }
 
+  /* Load a persisted thread snapshot (api only). Resolves to null when offline
+     or when the thread is gone, so the caller can fall back to the home screen. */
+  function restoreThread(threadId) {
+    return init().then(function () {
+      if (mode !== "api" || !threadId) return null;
+      return API.get("/threads/" + encodeURIComponent(threadId)).catch(function () {
+        return null;
+      });
+    });
+  }
+
+  /* Persist a note (api only). Resolves to the saved note, or null in the mock. */
+  function saveNote(payload) {
+    return init().then(function () {
+      if (mode !== "api") return null;
+      return API.post("/threads/" + encodeURIComponent(payload.threadId) + "/notes", {
+        source_node_id: payload.remoteNodeId,
+        text: payload.text,
+        context: payload.context,
+      }).catch(function () {
+        return null;
+      });
+    });
+  }
+
+  function deleteNote(noteId) {
+    return init().then(function () {
+      if (mode !== "api" || !noteId) return true;
+      return API.del("/notes/" + encodeURIComponent(noteId))
+        .then(function () {
+          return true;
+        })
+        .catch(function () {
+          return false;
+        });
+    });
+  }
+
   window.QriouslyContent = {
     init: init,
     startRoot: startRoot,
     streamBranch: streamBranch,
+    restoreThread: restoreThread,
+    saveNote: saveNote,
+    deleteNote: deleteNote,
     getMode: function () {
       return mode;
     },
