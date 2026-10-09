@@ -94,7 +94,7 @@ A single card shown immediately after the query. Every field has a sensible defa
 
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
-│ TOP BAR  Qriously  [ lens ▾ ]        [☰] [ notes ] [◐] [＋ new]        │
+│ TOP BAR  Qriously [☰]  [ lens ▾ ]        [ notes ] [◐] [＋ new]       │
 ├───────────────────────────────────────────────────────────────────────┤
 │ TRAIL    Question › Rayleigh scattering › violet …                     │
 ├─────────────┬───────────────────────────────┬─────────────────────────┤

@@ -909,6 +909,7 @@ function startReader(question) {
   persistThreadId(null);
   home.hidden = true;
   reader.hidden = false;
+  historyBtn.hidden = false;
   lensChip.hidden = false;
   lensChipText.textContent = formatLens();
   composer.hidden = false;
@@ -967,6 +968,7 @@ function restoreSession(snapshot) {
 
   home.hidden = true;
   reader.hidden = false;
+  historyBtn.hidden = false;
   lensChip.hidden = false;
   lensChipText.textContent = formatLens();
   composer.hidden = false;
@@ -1081,7 +1083,7 @@ function relTime(iso) {
 }
 
 function setHistoryOpen(open) {
-  reader.classList.toggle("history-collapsed", !open);
+  document.body.classList.toggle("history-collapsed", !open);
   historyBtn.setAttribute("aria-expanded", String(open));
   try {
     localStorage.setItem("qriously-history-open", open ? "1" : "0");
@@ -1172,6 +1174,7 @@ function newSession() {
   homeInput.value = "";
   reader.hidden = true;
   composer.hidden = true;
+  historyBtn.hidden = true;
   lensChip.hidden = true;
   home.hidden = false;
   renderNotes();
@@ -1347,7 +1350,7 @@ notesExport.addEventListener("click", exportNotes);
 $("newBtn").addEventListener("click", newSession);
 historyNew.addEventListener("click", newSession);
 historyCollapse.addEventListener("click", () => setHistoryOpen(false));
-historyBtn.addEventListener("click", () => setHistoryOpen(reader.classList.contains("history-collapsed")));
+historyBtn.addEventListener("click", () => setHistoryOpen(document.body.classList.contains("history-collapsed")));
 historyMore.addEventListener("click", () => loadHistory(false));
 
 initTheme();
