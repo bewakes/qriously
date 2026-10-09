@@ -792,11 +792,17 @@ a {
 
 .as-head {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   gap: 8px;
   margin-bottom: 6px;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.as-toggle,
+.as-source,
+.as-remove {
+  align-self: center;
 }
 
 .as-toggle {
@@ -971,7 +977,7 @@ a {
 
 .toolbar-result {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   width: 100%;
   padding: 7px 9px;
@@ -990,6 +996,7 @@ a {
 
 .tr-loc {
   flex: none;
+  align-self: center;
   font-size: 0.8rem;
   color: var(--ink-faint);
 }
