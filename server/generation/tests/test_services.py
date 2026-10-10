@@ -12,9 +12,17 @@ from credits.services import get_wallet, spend
 from generation.llm.base import StreamChunk
 from generation.llm.errors import LLMError
 from generation.models import JobStatus
-from generation.services import _context_key, prepare_generation, stream_generation
+from generation.services import (
+    _action_log,
+    _context_key,
+    _MetaSplitter,
+    _parse_output,
+    _trajectory,
+    prepare_generation,
+    stream_generation,
+)
 from learning.models import NodeStatus
-from learning.services import create_thread
+from learning.services import create_node, create_thread
 
 User = get_user_model()
 
@@ -165,7 +173,78 @@ def test_upstream_error_marks_job_and_node_failed(context):
 
 
 def test_context_key_includes_the_span_only_for_ask():
-    assert _context_key(None, "ask", "Abc") != _context_key(None, "ask", "Xyz")
-    assert _context_key(None, "ask", "Abc") == _context_key(None, "ask", "abc")
-    assert _context_key(None, "dive", "Abc") == _context_key(None, "dive", "Xyz")
-    assert _context_key(None, "ask", None) == ""
+    assert _context_key(None, None, "ask", "Abc") != _context_key(
+        None, None, "ask", "Xyz"
+    )
+    assert _context_key(None, None, "ask", "Abc") == _context_key(
+        None, None, "ask", "abc"
+    )
+    assert _context_key(None, None, "dive", "Abc") == _context_key(
+        None, None, "dive", "Xyz"
+    )
+    assert _context_key(None, None, "ask", None) == ""
+
+
+class _ThreadId:
+    def __init__(self, id):
+        self.id = id
+
+
+def test_context_key_followup_is_per_thread():
+    thread_a, thread_b = _ThreadId("a"), _ThreadId("b")
+    assert _context_key(thread_a, None, "followup", None) != _context_key(
+        thread_b, None, "followup", None
+    )
+
+
+def test_meta_splitter_forwards_body_and_withholds_meta():
+    splitter = _MetaSplitter()
+    emitted = splitter.feed("The target adjusts. <<<QRIOUSLY\n")
+    assert emitted == "The target adjusts. "
+    assert splitter.stopped is True
+    assert splitter.feed("gist: x\n>>>") == ""
+
+
+def test_meta_splitter_does_not_leak_a_split_sentinel():
+    splitter = _MetaSplitter()
+    first = splitter.feed("body text <<<QRI")
+    assert "<<<QRI" not in first
+    splitter.feed("OUSLY\ngist: y\n>>>")
+    assert splitter.stopped is True
+
+
+def test_meta_splitter_finish_returns_withheld_tail():
+    splitter = _MetaSplitter()
+    emitted = splitter.feed("plain answer")
+    assert emitted + splitter.finish() == "plain answer"
+
+
+def test_parse_output_splits_gist_and_summary():
+    raw = "Here is the answer.\n<<<QRIOUSLY\ngist: one line\nsummary: hi\n>>>"
+    body, gist, summary = _parse_output("followup", raw)
+    assert body == "Here is the answer."
+    assert gist == "one line"
+    assert summary == "hi"
+
+
+def test_parse_output_passthrough_for_non_followup():
+    assert _parse_output("dive", "just text") == ("just text", None, None)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_action_log_and_trajectory_derive_from_the_thread(context):
+    user, wallet, thread = context
+    create_node(thread, "dive", title="base fee", anchor_text="base fee",
+                status=NodeStatus.DONE)
+    create_node(thread, "eli5", title="target", anchor_text="target",
+                status=NodeStatus.DONE)
+    create_node(thread, "followup", title="pending", status=NodeStatus.QUEUED)
+
+    actions = _action_log(thread)
+    assert 'dived into "base fee"' in actions
+    assert 'asked for a simpler version of "target"' in actions
+    assert len(actions) == 2
+
+    trajectory = _trajectory(thread)
+    assert "Root question: Why is the sky blue?" in trajectory
+    assert "Actions so far:" in trajectory

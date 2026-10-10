@@ -1,5 +1,6 @@
 import asyncio
 import json
+from uuid import uuid4
 
 import pytest
 from asgiref.sync import sync_to_async
@@ -283,3 +284,33 @@ def test_insufficient_credits_returns_402(client, token):
     assert body["error"] == "insufficient_credits"
     assert body["required"] == 15
     assert body["balance"] == 0
+
+
+def _valid(payload):
+    from generation.api import GenerateSerializer
+
+    serializer = GenerateSerializer(data=payload)
+    return serializer.is_valid(), serializer.errors
+
+
+def test_followup_serializer_requires_parent_and_question():
+    valid, _ = _valid({"thread_id": str(uuid4()), "kind": "followup", "question": "hi"})
+    assert valid is False
+    valid, _ = _valid(
+        {
+            "thread_id": str(uuid4()),
+            "kind": "followup",
+            "question": "hi",
+            "span": {"text": "ignored"},
+        }
+    )
+    assert valid is False
+    valid, errors = _valid(
+        {
+            "thread_id": str(uuid4()),
+            "kind": "followup",
+            "parent_node_id": str(uuid4()),
+            "question": "hi",
+        }
+    )
+    assert valid is True, errors

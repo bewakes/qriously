@@ -102,7 +102,7 @@
     var data;
     if (ctx.kind === "ask") {
       data = window.generateAsk(ctx.parent, ctx.anchor, ctx.question, ctx.lens);
-    } else if (ctx.kind === "root") {
+    } else if (ctx.kind === "root" || ctx.kind === "followup") {
       data = window.generateRoot(ctx.question || ctx.anchor, ctx.lens);
     } else {
       data = window.generateNode(ctx.parent, ctx.anchor, ctx.kind, ctx.lens);
@@ -130,10 +130,12 @@
       kind: ctx.kind,
       lens: ctx.lens,
     };
-    if (ctx.kind === "ask" || ctx.kind === "root") {
+    if (ctx.kind === "ask" || ctx.kind === "root" || ctx.kind === "followup") {
       body.question = ctx.question || ctx.anchor;
     }
-    if (ctx.kind !== "root") body.span = { text: ctx.anchor };
+    if (ctx.kind !== "root" && ctx.kind !== "followup") {
+      body.span = { text: ctx.anchor };
+    }
 
     return API.post("/generate", body, ctx.idempotencyKey).then(function (descriptor) {
       return API.stream(descriptor.stream_url, hooks).then(function (result) {

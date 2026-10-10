@@ -2,7 +2,7 @@ from collections.abc import Mapping
 
 DEFAULT_MODEL = "deepseek-flash"
 
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v3"
 
 LLM_TIMEOUT_SECONDS = 60
 LLM_MAX_RETRIES = 2
@@ -29,6 +29,7 @@ DEPTH_MULTIPLIER = {
 
 BASE_COST = {
     "root": 15,
+    "followup": 15,
     "dive": 12,
     "ask": 10,
     "eli5": 6,

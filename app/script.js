@@ -411,13 +411,15 @@ function addQuestion(question, options) {
   const clean = question.replace(/\s+/g, " ").trim();
   if (!clean) return null;
   const preset = options && options.preset;
+  const isFollowup = Boolean(options && options.followup);
+  const parentId = isFollowup && state.rootId ? state.rootId : null;
   const id = "q" + ++state.counter;
   const node = {
     id,
-    parentId: null,
+    parentId,
     depth: 0,
-    kind: "root",
-    isRoot: true,
+    kind: isFollowup ? "followup" : "root",
+    isRoot: !isFollowup,
     anchor: clean,
     question: clean,
     title: preset && preset.title ? preset.title : clean,
@@ -432,13 +434,13 @@ function addQuestion(question, options) {
   state.nodes.set(id, node);
 
   const el = document.createElement("section");
-  el.className = "action-section question-section kind-root";
+  el.className = "action-section question-section kind-" + node.kind;
   el.dataset.id = id;
   el.dataset.depth = "0";
   el.innerHTML = `
     <header class="as-head">
       <button type="button" class="as-toggle" aria-expanded="true" aria-label="Collapse">▼</button>
-      <span class="as-kind">Question</span>
+      <span class="as-kind">${isFollowup ? "Follow-up" : "Question"}</span>
       <button type="button" class="as-anchor">${escapeHtml(clean)}</button>
       <button type="button" class="as-remove" aria-label="Remove section">✕</button>
     </header>
@@ -752,11 +754,16 @@ function renderSide() {
   updateActions();
 }
 
+function isBase(node) {
+  return Boolean(node) && (node.isRoot || node.kind === "followup");
+}
+
 function chainOf(id) {
   const chain = [];
   let node = state.nodes.get(id);
   while (node) {
     chain.unshift(node);
+    if (isBase(node)) break;
     node = node.parentId ? state.nodes.get(node.parentId) : null;
   }
   return chain;
@@ -796,14 +803,14 @@ function renderTrail() {
 
 function rootOf(id) {
   let node = state.nodes.get(id);
-  while (node && !node.isRoot) node = node.parentId ? state.nodes.get(node.parentId) : null;
+  while (node && !isBase(node)) node = node.parentId ? state.nodes.get(node.parentId) : null;
   return node || state.nodes.get(state.rootId);
 }
 
 function updateStatus() {
   const n = state.order.filter((id) => {
     const node = state.nodes.get(id);
-    return node && !node.isRoot;
+    return node && !isBase(node);
   }).length;
   statusBranches.textContent = `${n} action${n === 1 ? "" : "s"}`;
   const root = rootOf(state.activeId);
@@ -1065,7 +1072,7 @@ function restoreSession(snapshot) {
       };
       const anchor = spec.anchor_text || spec.title || spec.kind;
       let created;
-      if (spec.parent_id) {
+      if (spec.parent_id && spec.kind !== "followup") {
         const parentLocal = remoteToLocal.get(spec.parent_id);
         if (!parentLocal) return;
         created = createSection(parentLocal, anchor, spec.kind, {
@@ -1073,7 +1080,10 @@ function restoreSession(snapshot) {
           question: spec.kind === "ask" ? spec.title : null,
         });
       } else {
-        created = addQuestion(spec.title || anchor || "Question", { preset });
+        created = addQuestion(spec.title || anchor || "Question", {
+          preset,
+          followup: spec.kind === "followup",
+        });
       }
       if (created) remoteToLocal.set(spec.id, created.id);
     });
@@ -1303,8 +1313,8 @@ composerForm.addEventListener("submit", (event) => {
   const value = composerInput.value.trim();
   if (!value) return composerInput.focus();
   composerInput.value = "";
-  addQuestion(value);
-  toast("New question · " + formatLens());
+  addQuestion(value, { followup: true });
+  toast("Follow-up · " + formatLens());
 });
 
 document.querySelectorAll(".home-samples button").forEach((btn) => {

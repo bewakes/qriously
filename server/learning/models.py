@@ -20,6 +20,8 @@ class Thread(UUIDModel, TimeStampedModel):
     title = models.TextField(blank=True)
     lens = models.JSONField(default=dict, blank=True)
     lens_bucket = models.CharField(max_length=64, blank=True)
+    summary = models.TextField(blank=True)
+    summary_updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "learning_thread"
@@ -67,6 +69,7 @@ class Node(UUIDModel, TimeStampedModel):
     )
     anchor_text = models.TextField(blank=True)
     title = models.TextField(blank=True)
+    gist = models.TextField(blank=True)
     lens = models.JSONField(default=dict, blank=True)
     lens_bucket = models.CharField(max_length=64, blank=True)
     order = models.IntegerField(default=0)

@@ -9,8 +9,8 @@ from asgiref.sync import sync_to_async
 from django.db import transaction
 from django.utils import timezone
 
-from content.models import ContentVariant
-from content.reuse import find_variant
+from content.models import ContentVariant, LookupLayer
+from content.reuse import LookupResult, find_variant
 from content.services import get_or_create_variant, upsert_concept
 from content.text import context_fingerprint, context_window, normalize
 from core.constants import (
@@ -31,7 +31,15 @@ from telemetry.services import finish_request, start_request
 from .errors import ContentBlocked
 from .llm import LLMClient, LLMError, get_client
 from .models import GenerationJob, JobStatus
-from .prompts import SPAN_KINDS, build_messages, frame_line
+from .prompts import (
+    ACTION_VERBS,
+    FOLLOWUP_KINDS,
+    META_CLOSE,
+    META_OPEN,
+    SPAN_KINDS,
+    build_messages,
+    frame_line,
+)
 
 if TYPE_CHECKING:
     from accounts.models import User
@@ -74,16 +82,19 @@ def prepare_generation(
         raise ContentBlocked(decision.category or "unsafe")
 
     concept = upsert_concept(text)
-    fingerprint = context_fingerprint(_context_key(parent, kind, span_text))
+    fingerprint = context_fingerprint(_context_key(thread, parent, kind, span_text))
     bucket = make_lens_bucket(effective_lens)
 
-    result = find_variant(
-        concept=concept,
-        kind=kind,
-        lens_bucket=bucket,
-        context_fingerprint=fingerprint,
-        prompt_version=PROMPT_VERSION,
-    )
+    if kind in FOLLOWUP_KINDS:
+        result = LookupResult(variant=None, layer=LookupLayer.GENERATED)
+    else:
+        result = find_variant(
+            concept=concept,
+            kind=kind,
+            lens_bucket=bucket,
+            context_fingerprint=fingerprint,
+            prompt_version=PROMPT_VERSION,
+        )
     cache_hit = result.hit
     cost = price(kind, effective_lens["depth"], cache_hit)
     if wallet.balance < cost:
@@ -118,7 +129,12 @@ def prepare_generation(
         lens=effective_lens,
         context=_branch_context(parent, kind, span_text),
         span_text=span_text,
-        frame=frame_line(parent.kind, parent.title) if parent is not None else None,
+        frame=(
+            frame_line(parent.kind, parent.title)
+            if parent is not None and kind not in FOLLOWUP_KINDS
+            else None
+        ),
+        trajectory=_trajectory(thread) if kind in FOLLOWUP_KINDS else None,
     )
     return GenerationJob.objects.create(
         request=request_log,
@@ -179,11 +195,14 @@ async def stream_generation(
     text = ""
     tokens_in: int | None = None
     tokens_out: int | None = None
+    splitter = _MetaSplitter() if job.kind in FOLLOWUP_KINDS else None
     try:
         async for chunk in client.stream(job.messages, model=job.model):
             if chunk.text:
                 text += chunk.text
-                yield ("token", {"text": chunk.text})
+                emitted = splitter.feed(chunk.text) if splitter else chunk.text
+                if emitted:
+                    yield ("token", {"text": emitted})
             if chunk.tokens_in is not None:
                 tokens_in = chunk.tokens_in
             if chunk.tokens_out is not None:
@@ -196,17 +215,85 @@ async def stream_generation(
         )
         return
 
+    if splitter is not None and not splitter.stopped:
+        tail = splitter.finish()
+        if tail:
+            yield ("token", {"text": tail})
+
+    body, gist, summary = _parse_output(job.kind, text)
     payload = await sync_to_async(_finalize)(
         job,
-        body=text,
+        body=body,
         variant=None,
         cache_hit=False,
         tokens_in=tokens_in,
         tokens_out=tokens_out,
         latency_ms=_elapsed_ms(started),
+        gist=gist,
+        summary=summary,
     )
     yield ("done", payload["done"])
     yield ("usage", payload["usage"])
+
+
+class _MetaSplitter:
+    """Withhold the trailing metadata block from the streamed body.
+
+    The model appends a ``<<<QRIOUSLY ... >>>`` block (gist + session summary)
+    after its answer. We forward the answer as it streams and stop once the
+    opening sentinel is seen, keeping a small tail buffered so a sentinel split
+    across chunks is never leaked.
+    """
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self.stopped = False
+
+    def feed(self, chunk: str) -> str:
+        if self.stopped:
+            return ""
+        self._buffer += chunk
+        index = self._buffer.find(META_OPEN)
+        if index != -1:
+            emitted = self._buffer[:index]
+            self._buffer = self._buffer[index:]
+            self.stopped = True
+            return emitted
+        keep = len(META_OPEN) - 1
+        if len(self._buffer) > keep:
+            emitted = self._buffer[:-keep]
+            self._buffer = self._buffer[-keep:]
+            return emitted
+        return ""
+
+    def finish(self) -> str:
+        tail = self._buffer
+        self._buffer = ""
+        return tail
+
+
+def _parse_output(kind: str, text: str) -> tuple[str, str | None, str | None]:
+    """Split a follow-up's answer from its trailing gist/summary block."""
+    if kind not in FOLLOWUP_KINDS:
+        return text, None, None
+    index = text.find(META_OPEN)
+    if index == -1:
+        return text, None, None
+    body = text[:index].rstrip()
+    meta = text[index + len(META_OPEN) :]
+    end = meta.find(META_CLOSE)
+    if end != -1:
+        meta = meta[:end]
+    gist: str | None = None
+    summary: str | None = None
+    for line in meta.splitlines():
+        stripped = line.strip()
+        lowered = stripped.lower()
+        if lowered.startswith("gist:"):
+            gist = stripped[5:].strip()
+        elif lowered.startswith("summary:"):
+            summary = stripped[8:].strip()
+    return body, gist, summary
 
 
 def job_descriptor(job: GenerationJob) -> dict[str, object]:
@@ -227,13 +314,20 @@ def _elapsed_ms(started: float) -> int:
     return int((time.monotonic() - started) * 1000)
 
 
-def _context_key(parent: Node | None, kind: str, span_text: str | None) -> str:
+def _context_key(
+    thread: Thread, parent: Node | None, kind: str, span_text: str | None
+) -> str:
     """Cache context for a node.
 
     An ``ask`` is a question *about a specific passage*, so the parent alone is
     not enough to key it: the same question asked about two different phrases
     under one parent must not reuse a single answer. Include the span there.
+
+    A ``followup`` is grounded in per-user trajectory, so it is keyed by the
+    thread: two users' follow-ups never collide, and it is never shared.
     """
+    if kind in FOLLOWUP_KINDS:
+        return f"followup :: {thread.id}"
     parent_key = _parent_concept_key(parent)
     if kind == "ask" and span_text:
         return f"{parent_key} :: {normalize(span_text)}"
@@ -244,6 +338,48 @@ def _parent_concept_key(parent: Node | None) -> str:
     if parent is not None and parent.content_variant_id:
         return parent.content_variant.concept.key
     return ""
+
+
+def _action_log(thread: Thread, limit: int = 25) -> list[str]:
+    """The reader's factual actions so far, newest last, capped at ``limit``.
+
+    Derived deterministically from the thread's nodes and notes — the model is
+    handed facts, never asked to recall history.
+    """
+    entries: list[tuple] = []
+    nodes = (
+        thread.nodes.filter(status=NodeStatus.DONE)
+        .exclude(kind="root")
+        .order_by("created_at")
+    )
+    for node in nodes:
+        verb = ACTION_VERBS.get(node.kind)
+        if not verb:
+            continue
+        phrase = (node.anchor_text or node.title or "").strip()
+        entries.append((node.created_at, f'{verb} "{phrase}"' if phrase else verb))
+    for note in thread.notes.order_by("created_at"):
+        text = (note.text or "").strip()
+        label = f'saved a note: "{text}"' if text else "saved a note"
+        entries.append((note.created_at, label))
+    entries.sort(key=lambda entry: entry[0])
+    return [label for _, label in entries[-limit:]]
+
+
+def _trajectory(thread: Thread) -> str:
+    """Root question + rolling summary + the derived action log."""
+    lines: list[str] = []
+    root = (thread.title or "").strip()
+    if root:
+        lines.append(f"Root question: {root}")
+    summary = (thread.summary or "").strip()
+    if summary:
+        lines.append(f"Session summary: {summary}")
+    actions = _action_log(thread)
+    if actions:
+        lines.append("Actions so far:")
+        lines.extend(f"- {action}" for action in actions)
+    return "\n".join(lines)
 
 
 def _branch_context(
@@ -275,6 +411,8 @@ def _finalize(
     tokens_in: int | None,
     tokens_out: int | None,
     latency_ms: int,
+    gist: str | None = None,
+    summary: str | None = None,
 ) -> dict:
     node = job.node
     if variant is None:
@@ -284,7 +422,9 @@ def _finalize(
             lens=job.lens,
             title=job.concept.text,
             body=body,
-            context_key=_context_key(node.parent, node.kind, node.anchor_text),
+            context_key=_context_key(
+                job.thread, node.parent, node.kind, node.anchor_text
+            ),
             prompt_version=job.prompt_version,
             model=job.model,
         )
@@ -292,15 +432,22 @@ def _finalize(
     node.status = NodeStatus.DONE
     node.reused = cache_hit
     node.title = variant.title or node.title
+    if gist:
+        node.gist = gist
     node.save(
         update_fields=[
             "content_variant",
             "status",
             "reused",
             "title",
+            "gist",
             "updated_at",
         ]
     )
+    if summary:
+        job.thread.summary = summary
+        job.thread.summary_updated_at = timezone.now()
+        job.thread.save(update_fields=["summary", "summary_updated_at"])
 
     event = record_generation(
         wallet=job.wallet,
@@ -337,6 +484,8 @@ def _finalize(
         "content_variant_id": str(variant.id),
         "title": variant.title,
         "est_read_seconds": variant.est_read_seconds,
+        "gist": node.gist or None,
+        "summary": (job.thread.summary or None),
     }
     usage = {
         "request_id": str(job.request_id),

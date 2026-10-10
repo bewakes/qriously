@@ -83,21 +83,24 @@ Update `title` or default `lens` (affects subsequent branches only).
 ## 3. Nodes (branches & questions)
 
 ### `POST /threads/{id}/nodes`
-Creates a branch from a selected span, or a new root question from the composer.
-This is the single entry point for "act on a span".
+Creates a branch from a selected span, or a **follow-up** question from the
+composer. This is the single entry point for "act on a span" or "ask the thread".
 
 ```json
 {
-  "parent_node_id": "uuid|null",   // null = new root question
-  "kind": "dive|eli5|example|define|ask|root",
-  "span": { "text": "Rayleigh scattering" },   // required unless kind=root
-  "question": "why blue and not violet?",     // required for ask/root
+  "parent_node_id": "uuid|null",   // null only for the thread root
+  "kind": "dive|eli5|example|define|ask|followup",
+  "span": { "text": "Rayleigh scattering" },   // required unless kind=followup
+  "question": "how is the target calculated?", // required for ask/followup
   "lens": { ... },                            // optional override for this node
   "idempotency_key": "uuid"
 }
 ```
-Response (`202`) returns a generation job descriptor (see §4). Persistence and
-metering are driven by the stream.
+A **`followup`** is the composer case: `parent_node_id` is the thread's
+**original root** (never null — a follow-up never starts a new root), `span` is
+omitted, and `question` is required. It renders top-level but is parented to the
+root for context. Response (`202`) returns a generation job descriptor (see §4).
+Persistence and metering are driven by the stream.
 
 ### `PATCH /nodes/{id}`
 Thread-local UI state: `{ "collapsed": true }`, `{ "title": "..." }`.
@@ -167,7 +170,8 @@ data: {"text":"by particles much smaller than the wavelength."}
 
 event: done
 data: {"node_id":"...","content_variant_id":"...","title":"Rayleigh scattering, in detail",
-       "est_read_seconds":54}
+       "est_read_seconds":54,"gist":"Explains why short wavelengths scatter more.",
+       "summary":"User is exploring why the sky is blue; covered Rayleigh scattering."}
 
 event: usage
 data: {"request_id":"...","credits_charged":120,"balance":4700,"cache_hit":false,
@@ -180,6 +184,13 @@ data: {"code":"upstream_timeout","message":"DeepSeek timed out","retryable":true
 **Cache hits replay the same sequence**: `meta` (with `cache_hit:true` and the
 fractional `cost`) → one `token` carrying the full body → `done` → `usage` (with
 `vendor_cost_micros:null`, since no LLM call was made). One client code path.
+
+**`gist` / `summary` (v23).** Generated answers carry a short `gist` (part of the
+variant, so a cache hit replays it) and — on **follow-up** generations, which are
+always per-user and never cross-user cache hits — an **updated session summary**
+written to `Thread.summary`. The model emits both after the body; the server
+splits them off the stream (they never appear as `token` events). A cache hit has
+no LLM call, so it does not refresh the summary; the next follow-up catches up.
 
 `error` is terminal for the job; the hold is voided/refunded and the node is
 marked `error` with an inline retry affordance. Retry reuses the same
