@@ -249,5 +249,22 @@ def test_outline_includes_headings_and_notes(client, token):
 
 
 @pytest.mark.django_db
+def test_list_threads_returns_own_newest_first(client, token):
+    make_root(client, token, "Why is the sky blue?")
+    make_root(client, token, "How do black holes bend time?")
+
+    other = client.post(
+        "/api/v1/auth/device", content_type="application/json"
+    ).json()["token"]
+    make_root(client, other, "Someone else's question")
+
+    listing = client.get("/api/v1/threads", headers=auth(token)).json()
+    titles = [row["title"] for row in listing["results"]]
+    assert titles == ["How do black holes bend time?", "Why is the sky blue?"]
+    assert listing["next"] is None
+
+
+@pytest.mark.django_db
 def test_threads_require_auth(client):
     assert client.post("/api/v1/threads").status_code == 401
+    assert client.get("/api/v1/threads").status_code == 401

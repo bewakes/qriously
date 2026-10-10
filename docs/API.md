@@ -52,6 +52,12 @@ Start a session; optionally creates the first root question immediately.
 If `question` is present, a root node is created and generation is kicked off
 (returned in the same shape as `POST /generate`).
 
+### `GET /threads`
+Lists the device user's sessions, newest activity (`updated_at`) first,
+cursor-paginated (`?cursor=&limit=`). Returns `{ results, next }` where each
+result is `{ id, title, lens, lens_bucket, created_at, updated_at }`. Owner-scoped;
+never returns another user's threads. Powers the app's left session-history pane.
+
 ### `GET /threads/{id}`
 Full snapshot for rendering/restoring a session.
 ```json

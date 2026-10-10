@@ -166,6 +166,18 @@
     });
   }
 
+  /* List the device user's sessions (api only), newest activity first.
+     Resolves to { results: [], next: null } offline or on failure. */
+  function listThreads(cursor) {
+    return init().then(function () {
+      if (mode !== "api") return { results: [], next: null };
+      var path = "/threads" + (cursor ? "?cursor=" + encodeURIComponent(cursor) : "");
+      return API.get(path).catch(function () {
+        return { results: [], next: null };
+      });
+    });
+  }
+
   /* Load a persisted thread snapshot (api only). Resolves to null when offline
      or when the thread is gone, so the caller can fall back to the home screen. */
   function restoreThread(threadId) {
@@ -208,6 +220,7 @@
     init: init,
     startRoot: startRoot,
     streamBranch: streamBranch,
+    listThreads: listThreads,
     restoreThread: restoreThread,
     saveNote: saveNote,
     deleteNote: deleteNote,
