@@ -46,8 +46,8 @@ Ask  →  Calibrate  →  Read  →  Branch  →  Nest  →  Save  →  (Compose
 | Calibration lens | One-tap personalization; skippable, editable anytime. |
 | Session history | Collapsible left pane listing past sessions (server-backed); shown on Home and in the reader; click to restore one. |
 | Reader | Reading column + branch list + trail. The heart of the app. |
-| Composer | A persistent bottom ask box; asking here **appends a new question section** below the current reading (it does not replace the session). |
-| Question section | A new question (from the composer) rendered as a section below the current reading, with its own answer and nested dives. |
+| Composer | A persistent bottom ask box scoped to the **thread**. A question here is a **follow-up** (`kind = followup`) that belongs to the thread's original root — it **never starts a new root** — while still rendering as a top-level question section below the current reading. |
+| Question section | The opening **root** question, or a **follow-up** from the composer, rendered as a section below the current reading with its own answer and nested dives. |
 | Dive section | A **Dive in** result rendered inline below the content, titled with the selection; dives nest recursively. |
 | Side rail ("Wider angles") | Non-dive results (**ELI5 / Examples / Define**) rendered as collapsible cards alongside the reading sheet. |
 | Selection toolbar | Contextual actions for a span, a free-text **Ask** field, plus (when it has results) a list of existing results to jump to. |
@@ -115,7 +115,7 @@ A single card shown immediately after the query. Every field has a sensible defa
 - **Dive sections:** only **Dive in** renders as a collapsible section **below the content**, titled with the selected phrase. Dives **nest** under dives — select inside a dive to go deeper. This is the only content that grows the sheet.
 - **Wider angles (side rail):** non-dive actions (**Ask… / ELI5 / Examples / Define**) render as collapsible **cards in the right rail**, never below the text. They are always one step off the main line of reading.
 - **Trail:** horizontal breadcrumb of the active path; click any crumb to jump.
-- **Composer:** persistent bottom ask box with read-time/action counters. Submitting **adds a new question section** below the current content (streamed, with its own dives nested under it and its asides in the side rail), rather than wiping the reader. The session can therefore hold several questions stacked down the sheet; the trail's base crumb follows the active question.
+- **Composer:** persistent bottom ask box with read-time/action counters, scoped to the **thread** — never to a section, because there is no selection. Submitting **adds a follow-up section** below the current content (streamed, with its own dives nested under it and its asides in the side rail), rather than wiping the reader. A follow-up is a **child of the thread's original root** (`kind = followup`), but it **renders top-level**: presentation keys off `kind`, not `parent` (see §10, §12). It is grounded in the **session trajectory** — the root question, a rolling session summary, and a server-derived action log — not a passage window. The session can hold several follow-ups stacked down the sheet.
 - **Session history (left rail):** a collapsible pane listing the device user's past sessions, newest activity first (`GET /threads`, cursor-paginated). It appears on **Home** (collapsed by default) as well as in the reader, whenever the device has sessions. The active session is marked; clicking another restores it via the same no-generation path as auto-resume. Collapsible from its own header (`«`) and the top-bar `☰` toggle (preference remembered); the reader pane's `＋` starts a **new session** (returns Home, keeping the old one in history). Offline/model mode lists nothing.
 
 ### 7.2 Reading behavior
@@ -137,7 +137,7 @@ Appears anchored just above the selection (or as a bottom bar on mobile). Shows 
 
 When the phrase already has results, the toolbar is a **results menu**: a scannable list (`↓ Dive · "…"`, `→ ELI5 · "…"`) above the action buttons. Click a row to scroll to that result and expand it; the buttons below still create another. This means one click on an actioned phrase both reveals what exists and offers the way to go further. If the phrase has no results yet, only the action buttons show. Clicking the inline **marker** jumps straight to the result when there is exactly one, and opens this menu when there are several.
 
-Below the action buttons sits a small **Ask** field ("Ask about this…"). It covers the cases the presets can't: it takes a free-text question scoped to the selected phrase and produces **one** answer **card** in the Wider angles rail (kind `ask`, titled with your question), anchored to the phrase so it also appears in the results menu and the marker. It is deliberately single-shot — submitting creates one section and closes the toolbar; there is no chat/thread state. Further depth is reached the normal way (select inside the answer), and the bottom composer remains the route for a fresh, top-level line of questioning.
+Below the action buttons sits a small **Ask** field ("Ask about this…"). It covers the cases the presets can't: it takes a free-text question scoped to the selected phrase and produces **one** answer **card** in the Wider angles rail (kind `ask`, titled with your question), anchored to the phrase so it also appears in the results menu and the marker. It is deliberately single-shot — submitting creates one section and closes the toolbar; there is no chat/thread state. Further depth is reached the normal way (select inside the answer), and the bottom composer remains the route for **thread-level follow-ups** (questions that have no span).
 
 | Action | Kind | What it produces | MVP |
 |---|---|---|---|
@@ -199,7 +199,7 @@ The inline marker on an actioned word is a **direction**, not a kind: `↓` mean
 
 The trail is the ordered ancestry of the current focus: `Question › A › B › C`.
 
-- The first crumb is the **base question** of the active path — the original question or a later one added from the composer — and scrolls to that question's sheet.
+- The first crumb is the **base question** of the active top-level section — the thread's original root, or a composer **follow-up**. There is **no breadcrumb linking a follow-up back to the thread root**: a follow-up reads as **its own topic/question**, and its `parent = root` link is for context only, never shown. Below the base, dives extend the path as usual.
 - Click any crumb to set focus there (the rail scrolls/filters to that subtree).
 - The trail is **persistent history**, not just the current path; siblings are discoverable from it (a subtle "x other branches here" affordance).
 - It doubles as a **study outline**: exportable as markdown (headings = trail, body = notes).
@@ -219,8 +219,8 @@ The trail is the ordered ancestry of the current focus: `Question › A › B �
 | Field | Type | Notes |
 |---|---|---|
 | `id` | string | Stable id |
-| `parentId` | string \| null | `null` for the root answer |
-| `kind` | enum | `root` \| `dive` \| `ask` \| `eli5` \| `example` \| `note` \| `define` \| `visual` \| `relevance` |
+| `parentId` | string \| null | `null` only for the thread's original root; a `followup` is a child of that root |
+| `kind` | enum | `root` \| `followup` \| `dive` \| `ask` \| `eli5` \| `example` \| `note` \| `define` \| `visual` \| `relevance` |
 | `anchor` | `{ text, spanId }` | The selected span this node answers |
 | `title` | string | Card heading |
 | `body` | markdown | Streamed; may contain new selectable spans |
@@ -233,6 +233,23 @@ The entire app is a single **node graph**. The trail is a path, notes are flagge
 
 ### 12.2 Generation contract (for the LLM phase)
 Input: `(parentContext, anchor.text, kind, lens)`. Output: a node with `title`, `body`, `citations`, `estReadSeconds`, and **suggested follow-up anchors** (entities worth branching).
+
+**Context sources (v23).** Context is assembled per kind, and this is also the
+**sharing boundary**:
+- **Opening `root`** — the question alone; **shared** (reusable across users).
+- **Span-scoped actions** (`dive`/`eli5`/`define`/`example`/`ask`) — the parent
+  frame plus a bounded **passage window** around the selection (`context_window`,
+  `BRANCH_CONTEXT_MAX_CHARS`). All inputs derive from shared content, so these
+  stay **shared**.
+- **Follow-up (`followup`)** — the **session trajectory**: the root question, the
+  rolling thread **summary**, and a **server-derived action log** (each action's
+  kind mapped to a verb, capped at the last ~25 actions). Because this depends on
+  per-user history, a follow-up answer is **per-user** and is **not reused across
+  users**.
+
+**Trajectory side-writes.** The same generation that answers a follow-up also
+returns, piggybacked, a short **`gist`** of its answer (stored on the `Node`) and
+an **updated session summary** (stored on the `Thread`) — no extra LLM round-trip.
 
 > **Backend turn (proposed):** this contract is realized server-side — see
 > `docs/ARCHITECTURE.md` §7–8 and `docs/API.md` §4. The request is a `POST`
@@ -500,8 +517,35 @@ The visual system is **reading-first**: the prose and the branching structure ca
   card's answer were silently refused and could not be saved to the notebook.
   The character count is width-independent, so a normal passage can be selected
   — and saved with **Save note** — from anywhere, including the rail; the
-  `container.contains(range.endContainer)` guard still keeps a selection to a
-  single node.
+   `container.contains(range.endContainer)` guard still keeps a selection to a
+   single node.
+- **v23 (proposed — follow-ups are thread children, grounded in a trajectory):** the bottom
+  **composer** no longer creates a new root. A question typed there is a
+  **follow-up** (`kind = followup`) whose **parent is the thread's original
+  root**; it still **renders as a top-level question section appended below**.
+  Presentation is now keyed off `kind`, not `parent` — `restoreSession` no longer
+  infers "parentless ⇒ new root" — so hierarchy (`parent = root`, for context)
+  and presentation (top-level) are decoupled. In the **trail** a follow-up reads
+  as **its own base**: there is **no breadcrumb** linking it back to the thread
+  root (that parent link is context-only). Rationale: the composer has **no
+  selection and no owning section**, so threading it under the root is the only
+  honest place for it to live.
+  Because there is no passage to anchor to, a follow-up is grounded in the
+  **session trajectory** instead: the **root question**, a **rolling session
+  summary**, and a **server-derived action log** (dives / ELI5s / examples /
+  defines / asks / notes mapped to verbs; capped at the last **~25 actions**).
+  The action log is **derived deterministically** from the thread's
+  `Node`/`Span`/`Note` rows — the model is handed facts, not asked to recall
+  history. The same generation **piggybacks** a short **`gist`** of its answer
+  (stored on the `Node`) and an **updated summary** (stored on the `Thread`); no
+  extra LLM round-trip.
+  **Sharing:** a follow-up answer depends on a per-user trajectory, so it is
+  **per-user** and never reused across users. The **opening root** (no context)
+  and the **span-scoped actions** (`eli5`/`define`/`example`/`dive`/`ask`) remain
+  **shared** — they are grounded only in shared content (the parent frame plus a
+  bounded passage window). Span actions deliberately do **not** receive the
+  trajectory, so they stay reusable; if the trajectory ever proves valuable there
+  too, it would have to be reconciled with sharing.
 
 ## 21. Implementation map
 

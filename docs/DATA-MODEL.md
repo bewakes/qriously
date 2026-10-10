@@ -173,10 +173,10 @@ One generated body for a specific audience/context. This is the reusable unit.
 |---|---|---|
 | `id` | UUID pk | |
 | `concept` | FK Concept | what it explains |
-| `kind` | enum | `root` · `dive` · `eli5` · `example` · `define` · `ask` · `visual` · `relevance` |
+| `kind` | enum | `root` · `followup` · `dive` · `eli5` · `example` · `define` · `ask` · `visual` · `relevance` |
 | `lens_bucket` | text | `fam:depth:style:goal` |
 | `lens_vector` | float[] | fixed-order numeric lens encoding |
-| `context_fingerprint` | text | hash of immediate parent concept (bounded) |
+| `context_fingerprint` | text | hash of immediate parent concept (bounded); for `followup`, a hash of the thread trajectory |
 | `prompt_version` | text | bump invalidates reuse |
 | `title` | text | |
 | `body` | text | markdown with `**anchor**` markers |
@@ -188,6 +188,21 @@ One generated body for a specific audience/context. This is the reusable unit.
 **Uniqueness:** `(concept, kind, lens_bucket, context_fingerprint,
 prompt_version)`. Exact lookup = this tuple. Broadened = drop
 `context_fingerprint`. Never `UPDATE` a variant; ship a new one.
+
+**Sharing boundary (v23).** `root` (no context) and the span-scoped actions
+(`dive`/`eli5`/`example`/`define`/`ask`, grounded in shared content — a parent
+frame and a bounded passage window) are **shared** across users. A **`followup`** is
+grounded in per-user trajectory (root question + `Thread.summary` + a
+server-derived action log), so its `context_fingerprint` is unique per thread and
+it is **never reused across users** — it is effectively a per-user row even
+though it lives in `ContentVariant`.
+
+**Action log (derived, not stored).** For a follow-up prompt, the server builds
+the user's action list on demand from the thread's `Node`/`Span`/`Note` rows,
+mapping each `kind` to a verb (e.g. `dive` → "dived into '<anchor>'", `eli5` →
+"asked for a simpler version of '<anchor>'", `note` → "saved a note"), ordered by
+time and capped at the last ~25 actions. It is factual context for the model, not
+a stored column.
 
 Indexes: unique tuple above; btree on `(concept, kind, lens_bucket)`. The
 `pgvector` extension, embedding columns and an HNSW index are added with the
@@ -213,7 +228,7 @@ Feeds prefetch now; retrieval/similar-branches later.
 ## 4. Thread layer (`learning`)
 
 ### `Thread`
-A session / line of inquiry (may accumulate several questions).
+A session / line of inquiry (the opening root plus its follow-ups).
 
 | Field | Type | Notes |
 |---|---|---|
@@ -222,7 +237,13 @@ A session / line of inquiry (may accumulate several questions).
 | `title` | text | first question, editable |
 | `lens` | jsonb | current default lens |
 | `lens_bucket` | text | cached current bucket |
+| `summary` | text | **rolling session summary**, updated as follow-ups are answered |
+| `summary_updated_at` | timestamptz, null | when `summary` was last refreshed |
 | `created_at`, `updated_at` | timestamptz | |
+
+`summary` is per-user context for **follow-up** generation (see `Node.kind` below).
+It is produced by the LLM, piggybacked on the answering generation, and is never
+used for cross-user reuse.
 
 ### `Span`
 The atomic anchor: a selected phrase inside some node's body.
@@ -247,10 +268,11 @@ A branch/action or a root question; the traversal vertex.
 |---|---|---|
 | `id` | UUID pk | |
 | `thread` | FK Thread | |
-| `parent` | FK Node, null | null for root questions |
-| `root` | FK Node, null | the root question of this subtree (self for roots) |
-| `kind` | enum | same enum as `ContentVariant.kind` |
-| `span` | FK Span, null | the phrase this answers; null for roots |
+| `parent` | FK Node, null | null **only** for the thread's original root; a `followup` is a child of that root |
+| `root` | FK Node, null | the root question of this subtree (self for roots; the thread root for follow-ups) |
+| `kind` | enum | `root` · `followup` · `dive` · `eli5` · `example` · `define` · `ask` · `visual` · `relevance` |
+| `gist` | text, null | one–two sentence summary of this node's answer; LLM-produced, piggybacked on generation |
+| `span` | FK Span, null | the phrase this answers; null for `root` and `followup` |
 | `content_variant` | FK ContentVariant, null | **shared ref**; null while streaming |
 | `anchor_text` | text | denormalized from span for quick display |
 | `title` | text | |

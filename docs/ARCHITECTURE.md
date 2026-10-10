@@ -45,11 +45,12 @@ graphs sharing vertices**:
   one `concept × kind × lens bucket × context fingerprint × prompt version`).
   Variants are never mutated; a new prompt/model produces a new version.
 
-- **Thread layer (per user, mutable traversal).**
+ - **Thread layer (per user, mutable traversal).**
   `Thread` → `Span` (a selected phrase in some node's body) → `Node` (a branch
   produced from a span: dive / eli5 / example / define / ask, or a root
-  question) → `Note` (a saved span). Ordering, collapse, and removal are
-  thread-local.
+  question, or a composer **`followup`**) → `Note` (a saved span). Ordering,
+  collapse, and removal are thread-local. A `Thread` also carries a rolling
+  **`summary`** for context.
 
 A `Node` **references** the `ContentVariant` it renders. Therefore:
 
@@ -58,6 +59,16 @@ A `Node` **references** the `ContentVariant` it renders. Therefore:
 - Removing a node removes a thread edge, never shared content.
 - The user's graph is a **DAG**: nodes link to spans/parents within the thread
   and to shared variants across threads.
+
+**Which answers are shared (v23).** `root` (the opening question, no context)
+and the span-scoped actions (`dive`/`eli5`/`example`/`define`/`ask`, grounded
+only in shared content — a parent frame plus a bounded passage window) are reused
+across users.
+A composer **`followup`** is grounded in per-user trajectory (the root question,
+`Thread.summary`, and a server-derived action log), so its context fingerprint is
+unique per thread and it is **never shared** — it lives in `ContentVariant` but is
+effectively a per-user row. This keeps the shared cache honest: an answer is only
+reused when its inputs were shared.
 
 A third, passive structure makes the knowledge reusable over time:
 `ConceptLink(parent_concept, child_concept, kind)` records which concepts were
@@ -265,7 +276,7 @@ subscriptions/plans without touching the flow.
 ```
 meta   { request_id, node_id, concept, kind, lens_bucket, cache_hit, cost, balance }
 token  { text }
-done   { node_id, content_variant_id, title, est_read_seconds }
+done   { node_id, content_variant_id, title, est_read_seconds, gist, summary }
 usage  { request_id, credits_charged, balance, cache_hit, lookup_layer,
          tokens_in, tokens_out, vendor_cost_micros, latency_ms }
 error  { code, message, retryable }
