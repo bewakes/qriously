@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.db import connections
 from django.test import AsyncClient
 
+from accounts.services import get_auth_provider
 from content import services as content_services
 from credits.models import Reason
 from credits.services import get_wallet, spend
@@ -61,8 +62,17 @@ def auth(token):
 
 @pytest.fixture
 def token(client):
-    body = client.post("/api/v1/auth/device", content_type="application/json").json()
-    return body["token"]
+    created = client.post(
+        "/api/v1/auth/device", content_type="application/json"
+    ).json()
+    code = get_auth_provider().start("generator@example.com")
+    registered = client.post(
+        "/api/v1/auth/login",
+        {"email": "generator@example.com", "code": code},
+        headers={"Authorization": f"Bearer {created['token']}"},
+        content_type="application/json",
+    ).json()
+    return registered["token"]
 
 
 def start_thread(client, token, question=None):

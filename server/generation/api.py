@@ -9,12 +9,12 @@ from django.http import HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.authentication import DeviceTokenAuthentication
+from accounts.authentication import SessionTokenAuthentication
+from accounts.permissions import IsRegisteredUser
 from credits.errors import InsufficientCredits
 from learning.models import Node, Thread
 
@@ -107,7 +107,7 @@ def prepare_response(
 
 
 class GenerateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsRegisteredUser]
 
     def post(self, request: Request) -> Response:
         serializer = GenerateSerializer(data=request.data)
@@ -151,10 +151,10 @@ async def generate_stream_view(request: Any, job_id: str) -> HttpResponse:
     """SSE stream for a prepared job (docs/API.md §4).
 
     Uses a plain async view (not DRF) so the response can stream an async
-    generator; auth is done explicitly with the device-token authenticator.
+    generator; auth is done explicitly with the session-token authenticator.
     """
     try:
-        result = await sync_to_async(DeviceTokenAuthentication().authenticate)(
+        result = await sync_to_async(SessionTokenAuthentication().authenticate)(
             request
         )
     except AuthenticationFailed:
@@ -163,6 +163,8 @@ async def generate_stream_view(request: Any, job_id: str) -> HttpResponse:
         return HttpResponse(status=401)
 
     user, _session = result
+    if user.is_anonymous_device:
+        return HttpResponse(status=401)
     job = await sync_to_async(_load_job)(user, job_id)
     if job is None:
         return HttpResponse(status=404)

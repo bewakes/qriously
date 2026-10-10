@@ -66,9 +66,9 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDModel, TimeStampedModel):
         return self.is_anonymous_device
 
 
-class DeviceSession(UUIDModel, TimeStampedModel):
+class Session(UUIDModel, TimeStampedModel):
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="device_sessions"
+        User, on_delete=models.CASCADE, related_name="sessions"
     )
     token_hash = models.CharField(max_length=64, unique=True)
     label = models.CharField(max_length=200, blank=True)
@@ -76,10 +76,10 @@ class DeviceSession(UUIDModel, TimeStampedModel):
     revoked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        db_table = "accounts_device_session"
+        db_table = "accounts_session"
 
     def __str__(self) -> str:
-        return f"{self.user} [{self.label or 'device'}]"
+        return f"{self.user} [{self.label or 'session'}]"
 
     @property
     def is_active(self) -> bool:

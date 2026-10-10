@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import DeviceSession, User
+from .models import Session, User
 
 
 @admin.register(User)
@@ -37,8 +37,8 @@ class UserAdmin(BaseUserAdmin):
     ]
 
 
-@admin.register(DeviceSession)
-class DeviceSessionAdmin(admin.ModelAdmin):
+@admin.register(Session)
+class SessionAdmin(admin.ModelAdmin):
     list_display = ["id", "user", "label", "created_at", "revoked_at"]
     list_filter = ["revoked_at"]
     search_fields = ["user__email", "label"]

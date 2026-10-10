@@ -27,27 +27,35 @@ Wraps `django.contrib.auth`'s user (custom user model from day one).
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID pk | |
-| `email` | citext, null, unique | null until upgrade |
-| `is_anonymous_device` | bool, default true | true = not yet claimed |
+| `email` | citext, null, unique | null until the session is claimed |
+| `is_anonymous_device` | bool, default true | true = anonymous (pre-claim) session |
 | `display_name` | text, null | non-PII; optional |
 | `created_at` | timestamptz | |
 
-### `DeviceSession`
-Anonymous-first identity. The client stores the opaque token; the server stores
-only its hash.
+### `Session`
+Login/session credential. The client stores the opaque token; the server stores
+only its hash. One row per issued credential (one per device/browser), revocable.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID pk | |
-| `user` | FK User, related `device_sessions` | one live user per session |
+| `user` | FK User, related `sessions` | one live user per session |
 | `token_hash` | bytea, unique | never store the raw token |
 | `label` | text, null | "Chrome on macOS" |
 | `last_seen_at` | timestamptz | rotated on activity |
 | `revoked_at` | timestamptz, null | |
 | `created_at` | timestamptz | |
 
-Anonymity here means: no email required to ask. `User.is_anonymous_device`
-flips false on upgrade; `DeviceSession`s stay attached.
+Generation is **login-gated**: an anonymous session may exist (it is the source
+a login can claim), but it cannot spend tokens. On login, a verified email
+either **claims** the current anonymous user in place — `email` is set,
+`is_anonymous_device` flips false, and its `Thread`s/`Note`s/`Wallet` stay
+attached because the primary key is unchanged — or issues a new session for an
+existing account. A fresh session token is rotated on every login; the prior
+one is revoked. For history spread across several anonymous sessions (the
+pre-login model issued one per device), `manage.py claim_session --all-anonymous`
+reattaches their threads to an account offline; notes follow.
+
 
 ---
 

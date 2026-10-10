@@ -144,8 +144,8 @@ server/
 ├── core/
 │   ├── constants.py   # pure tunables (no Django)
 │   └── models.py      # shared abstract mixins (UUID, timestamps)
-├── accounts/          # User, DeviceSession  ← the only entities
-│   ├── models.py · policies.py · services.py · authentication.py
+├── accounts/          # User, Session  ← the only entities
+│   ├── models.py · policies.py · providers.py · services.py · authentication.py
 │   └── api.py · urls.py · admin.py · migrations/
 ├── credits/           # Wallet, CreditEntry  ← the only entities
 │   ├── models.py · policies.py · services.py
@@ -161,7 +161,7 @@ server/
 
 1. **One entity per concept.** The Django model *is* the entity — no parallel
    dataclasses, no mappers. A model may carry trivial in-memory behavior
-   (`Wallet.debit`, `DeviceSession.revoke`) but a behavior method never issues
+   (`Wallet.debit`, `Session.revoke`) but a behavior method never issues
    queries.
 2. **Pure core is framework-free.** `policies.py`, `lenses/`, `safety/`, and
    `core/constants.py` must not import Django. All decisions (pricing, ledger
@@ -299,7 +299,7 @@ app/
 ├── styles.css                 # imports tokens + components (or split)
 ├── src/
 │   ├── core/     store.js (tiny observable state), dom.js (h/on), events.js
-│   ├── api/      client.js (REST), sse.js (stream reader), auth.js (device token)
+│   ├── api/      client.js (REST), sse.js (stream reader), auth.js (session token)
 │   ├── content/  adapter.js (chooses API vs mock), mock.js (old content.js)
 │   ├── components/ Anchor, ActionSection, SideRail, Toolbar, LensCard,
 │   │               Composer, Trail, Notebook, CreditMeter, Toast, ThemeToggle
@@ -328,9 +328,12 @@ Principles:
   a cached sum guarded by row locks. No floats anywhere near a balance.
 - **Idempotency:** client sends `Idempotency-Key` on generate/note writes;
   server stores it to make retries safe and double-charges impossible.
-- **Auth:** anonymous device token (opaque, rotated) by default; upgrade attaches
-  email/OAuth to the same user and keeps threads + credits. No PII is required
-  to answer a question.
+- **Auth:** login-gated. A verified email (dev console code today; Google behind
+  the same provider interface) issues a revocable `Session`; an existing
+  anonymous session is **claimed in place**, keeping its threads + credits. An
+  unregistered email creates the account. Metered generation requires a
+  logged-in account; anonymous sessions cannot spend. No PII is needed in the
+  lens.
 - **Trust/citations:** real sourcing is deferred. The `ContentVariant.citations`
   field exists and is populated as `unverified` model-provided references at
   most; the UI must not claim "verified sources" (corrects the prototype's
@@ -352,14 +355,17 @@ Principles:
 
 ## 11. MVP boundary
 
-**In:** device auth; threads/questions/branches/notes; lens; DeepSeek
+**In:** login-gated auth (dev console code; claim-in-place of a local anonymous
+session); threads/questions/branches/notes; lens; DeepSeek
 (`deepseek-flash`) streaming; concept+lens-tagged variant cache with exact +
 broadened lookup (**hits charged a fraction, never free**); authoritative credit
 ledger with mock grant and metering; a **screening hook** (allow-all policy) and
 one `RequestLog` per metered call including vendor cost; SSE; the frontend wired
-to the API with the mock as fallback; admin + tests.
+to the API with the mock as the guest/demo fallback; admin + tests.
 
-**Out (designed-for, not built):** live Stripe/subscriptions; semantic embedding
+**Out (designed-for, not built):** Google OAuth (provider interface only);
+server-side curated sample sessions (guests use the offline mock); live
+Stripe/subscriptions; semantic embedding
 lookup (`lens_vector` stored now; embeddings + pgvector arrive with it); real
 moderation policies (interface + allow-all only),
 retrieval-grounded citations; prefetch; cost-analytics dashboard (data captured,

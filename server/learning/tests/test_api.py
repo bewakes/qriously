@@ -2,13 +2,23 @@ import json
 
 import pytest
 
+from accounts.services import get_auth_provider
 from learning.models import Node
 
 
 @pytest.fixture
 def token(client):
-    body = client.post("/api/v1/auth/device", content_type="application/json").json()
-    return body["token"]
+    created = client.post(
+        "/api/v1/auth/device", content_type="application/json"
+    ).json()
+    code = get_auth_provider().start("learner@example.com")
+    registered = client.post(
+        "/api/v1/auth/login",
+        {"email": "learner@example.com", "code": code},
+        headers={"Authorization": f"Bearer {created['token']}"},
+        content_type="application/json",
+    ).json()
+    return registered["token"]
 
 
 def auth(token):

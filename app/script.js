@@ -34,6 +34,7 @@ const creditValue = $("creditValue");
 const connBadge = $("connBadge");
 const themeBtn = $("themeBtn");
 const notesBtn = $("notesBtn");
+const logoutBtn = $("logoutBtn");
 const noteCount = $("noteCount");
 const notebook = $("notebook");
 const notesClose = $("notesClose");
@@ -50,6 +51,15 @@ const confirmTitle = $("confirmTitle");
 const confirmMessage = $("confirmMessage");
 const confirmCancel = $("confirmCancel");
 const confirmDelete = $("confirmDelete");
+const login = $("login");
+const loginForm = $("loginForm");
+const loginStartBtn = $("loginStartBtn");
+const loginEmail = $("loginEmail");
+const loginCode = $("loginCode");
+const loginEmailStep = $("loginEmailStep");
+const loginCodeStep = $("loginCodeStep");
+const loginStatus = $("loginStatus");
+const loginBack = $("loginBack");
 
 const WAIT_MESSAGES = ["Considering…", "Cross-referencing…", "Composing the reply…"];
 let waitTimer = null;
@@ -1553,6 +1563,11 @@ sideList.addEventListener("click", handleSectionClick);
 
 themeBtn.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
 notesBtn.addEventListener("click", () => (notebook.hidden = !notebook.hidden));
+logoutBtn.addEventListener("click", async () => {
+  logoutBtn.disabled = true;
+  await content.logout();
+  location.reload();
+});
 notesClose.addEventListener("click", () => (notebook.hidden = true));
 notesExport.addEventListener("click", exportNotes);
 noteCompose.addEventListener("submit", (event) => {
@@ -1566,6 +1581,7 @@ noteCompose.addEventListener("submit", (event) => {
 $("newBtn").addEventListener("click", newSession);
 brandHome.addEventListener("click", (event) => {
   event.preventDefault();
+  if (document.body.classList.contains("guest")) return;
   if (reader.hidden) homeInput.focus();
   else newSession();
 });
@@ -1579,6 +1595,95 @@ document.addEventListener("click", (event) => {
   if (event.target.closest(".history-collapse")) return setHistoryOpen(false);
 });
 historyBtn.addEventListener("click", () => setHistoryOpen(document.body.classList.contains("history-collapsed")));
+
+let loginPhase = "email";
+
+function setLoginStatus(text, kind) {
+  loginStatus.textContent = text || "";
+  loginStatus.dataset.kind = kind || "";
+}
+
+function showLogin(reason) {
+  document.body.classList.add("guest");
+  home.hidden = true;
+  reader.hidden = true;
+  composer.hidden = true;
+  login.hidden = false;
+  loginStartBtn.hidden = false;
+  loginForm.hidden = true;
+  loginEmailStep.hidden = false;
+  loginCodeStep.hidden = true;
+  loginPhase = "email";
+  loginEmail.value = "";
+  loginCode.value = "";
+  $("newBtn").hidden = true;
+  notesBtn.hidden = true;
+  logoutBtn.hidden = true;
+  if (reason === "offline") {
+    setLoginStatus("Server unreachable — explore a sample below.", "error");
+  } else if (reason === "claim_required") {
+    setLoginStatus("Your current session is saved — sign in to move it into your account.");
+  }
+  loginStartBtn.focus();
+}
+
+loginStartBtn.addEventListener("click", () => {
+  loginStartBtn.hidden = true;
+  loginForm.hidden = false;
+  loginPhase = "email";
+  loginEmail.focus();
+});
+
+loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const email = loginEmail.value.trim();
+  if (loginPhase === "email") {
+    if (!email) return loginEmail.focus();
+    setLoginStatus("Sending code…");
+    try {
+      const res = await content.loginStart(email);
+      loginPhase = "code";
+      loginEmailStep.hidden = true;
+      loginCodeStep.hidden = false;
+      loginCode.focus();
+      setLoginStatus(
+        res && res.requires_code === false
+          ? "Signing in…"
+          : "Code sent — check the server console."
+      );
+    } catch (err) {
+      setLoginStatus("Couldn't reach the server — try a sample below.", "error");
+    }
+    return;
+  }
+  const code = loginCode.value.trim();
+  if (!code) return loginCode.focus();
+  setLoginStatus("Signing in…");
+  try {
+    await content.login(email, code);
+    location.reload();
+  } catch (err) {
+    setLoginStatus("That code didn't work. Try again.", "error");
+  }
+});
+
+loginBack.addEventListener("click", () => {
+  loginPhase = "email";
+  loginCodeStep.hidden = true;
+  loginEmailStep.hidden = false;
+  setLoginStatus("");
+  loginEmail.focus();
+});
+
+document.querySelectorAll(".demo-card").forEach((card) => {
+  card.addEventListener("click", () => {
+    const url = new URL(location.href);
+    url.search = "";
+    url.searchParams.set("demo", "1");
+    if (card.dataset.demo) url.searchParams.set("q", card.dataset.demo);
+    location.href = url.toString();
+  });
+});
 
 initTheme();
 renderNotes();
@@ -1616,8 +1721,14 @@ content.init().then((info) => {
         renderHistory();
       });
     }
+  } else if (params.has("demo")) {
+    showConnection("mock");
+    const demoQuestion = params.get("q");
+    if (demoQuestion) startReader(demoQuestion);
+    else seedDemo();
+  } else if (info.mode === "guest") {
+    showLogin(info.reason);
   } else {
     showConnection("mock");
   }
-  if (params.has("demo")) seedDemo();
 });

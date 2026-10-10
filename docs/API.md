@@ -2,40 +2,65 @@
 
 **Status:** Proposed. Implements the flows in `ARCHITECTURE.md` over the schema
 in `DATA-MODEL.md`.
-**Base URL:** `/api/v1` · **Format:** JSON (except SSE) · **Auth:** `Authorization: Bearer <device_token>`.
+**Base URL:** `/api/v1` · **Format:** JSON (except SSE) · **Auth:** `Authorization: Bearer <session_token>`.
 **Idempotency:** mutating generation/note writes accept an `Idempotency-Key`
 header; replays return the original result and never double-charge.
 
 ---
 
-## 1. Auth & identity (anonymous-first)
+## 1. Auth & identity (login-gated)
 
-### `POST /auth/device`
-Creates an anonymous user + wallet + device session. No body required.
+Metered generation requires a logged-in account; guests browse the offline
+samples only. An anonymous session can still be created (it is what a login
+claims), but it cannot spend tokens.
+
+### `POST /auth/login/start`
+Begins a login. The dev provider prints a one-time code to the server console.
 
 ```json
+{ "email": "you@example.com" }
+200 { "sent": true, "provider": "dev", "requires_code": true }
+```
+
+### `POST /auth/login`
+Verifies the code and issues a session. If the caller sends its current
+anonymous session token (via `Authorization`), that anonymous user is **claimed
+in place** — its threads, notes and wallet stay attached — and the old session
+is revoked. An unregistered email with no current session creates a new
+account; a registered email issues a session for it.
+
+```json
+{ "email": "you@example.com", "code": "123456" }
 200 {
-  "token": "dev_xxx",              // opaque; shown once
-  "user": { "id": "uuid", "is_anonymous_device": true },
+  "token": "sess_xxx",             // opaque; shown once
+  "user": { "id": "uuid", "email": "you@example.com", "is_anonymous_device": false },
   "wallet": { "balance": 5000, "currency": "micro_credits" },
   "granted": 5000
 }
 ```
 The client persists `token` and sends it on every request. A `signup_grant` is
-written to the ledger on first creation.
+written to the ledger only when a *new* account is created (claiming is an
+update, so it never double-grants). Providers sit behind one interface
+(`accounts/providers.py`): `dev` (console code) and `google` (stub), selected by
+`AUTH_PROVIDER` in `core/constants.py`.
 
-### `POST /auth/upgrade`
-Attaches email/OAuth credentials to the current anonymous user (keeps threads +
-credits). Body: provider payload + `{ provider: "email"|"google", ... }`.
+### `POST /auth/device`
+Creates an anonymous user + wallet + session. No body required. Used to
+bootstrap a guest/claimable session; the resulting token cannot generate.
+
+### `POST /auth/logout`
+Revokes the current session (the bearer token). Returns `204`. The client then
+clears its stored token and returns to the guest login screen.
 
 ### `GET /me`
 ```json
 200 {
-  "user": { "id": "uuid", "email": null, "is_anonymous_device": true },
+  "user": { "id": "uuid", "email": "you@example.com", "is_anonymous_device": false },
   "wallet": { "balance": 4820, "lifetime_granted": 5000, "lifetime_spent": 180 },
   "plan": { "code": "free", "name": "Free" }
 }
 ```
+
 
 ---
 

@@ -4,14 +4,14 @@ from django.http import HttpRequest
 from rest_framework.authentication import BaseAuthentication, get_authorization_header
 from rest_framework.exceptions import AuthenticationFailed
 
-from .models import DeviceSession, User
+from .models import Session, User
 from .policies import hash_token
 
 
-class DeviceTokenAuthentication(BaseAuthentication):
+class SessionTokenAuthentication(BaseAuthentication):
     keyword = "Bearer"
 
-    def authenticate(self, request: HttpRequest) -> tuple[User, DeviceSession] | None:
+    def authenticate(self, request: HttpRequest) -> tuple[User, Session] | None:
         header = get_authorization_header(request).split()
         if not header or header[0].lower() != self.keyword.lower().encode():
             return None
@@ -23,10 +23,10 @@ class DeviceTokenAuthentication(BaseAuthentication):
             raise AuthenticationFailed("Invalid token.") from None
 
         try:
-            session = DeviceSession.objects.select_related("user").get(
+            session = Session.objects.select_related("user").get(
                 token_hash=hash_token(token), revoked_at__isnull=True
             )
-        except DeviceSession.DoesNotExist:
+        except Session.DoesNotExist:
             raise AuthenticationFailed("Invalid or revoked token.") from None
 
         return (session.user, session)

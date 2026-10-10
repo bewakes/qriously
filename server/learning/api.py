@@ -6,11 +6,11 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.pagination import CursorPagination
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import IsRegisteredUser
 from core.constants import lens_bucket as make_lens_bucket
 from core.constants import normalize_lens
 from generation.api import GenerateSerializer, prepare_response
@@ -113,7 +113,7 @@ class ThreadPagination(CursorPagination):
 
 
 class ThreadListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsRegisteredUser]
     pagination_class = ThreadPagination
 
     def get(self, request: Request) -> Response:
@@ -145,7 +145,7 @@ class ThreadListCreateView(APIView):
 
 
 class ThreadDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsRegisteredUser]
 
     def get(self, request: Request, thread_id: str) -> Response:
         thread = _thread_or_404(request.user, thread_id)
@@ -180,7 +180,7 @@ class ThreadDetailView(APIView):
 
 
 class NodeCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsRegisteredUser]
 
     def post(self, request: Request, thread_id: str) -> Response:
         thread = _thread_or_404(request.user, thread_id)
@@ -212,7 +212,7 @@ class NodeCreateView(APIView):
 
 
 class NodeDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsRegisteredUser]
 
     def patch(self, request: Request, node_id: str) -> Response:
         node = _node_or_404(request.user, node_id)
@@ -239,7 +239,7 @@ class NotePagination(CursorPagination):
 
 
 class NoteListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsRegisteredUser]
     pagination_class = NotePagination
 
     def get(self, request: Request, thread_id: str) -> Response:
@@ -284,7 +284,7 @@ class NoteListCreateView(APIView):
 
 
 class NoteDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsRegisteredUser]
 
     def patch(self, request: Request, note_id: str) -> Response:
         note = get_object_or_404(
@@ -310,7 +310,7 @@ class NoteDetailView(APIView):
 
 
 class OutlineView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsRegisteredUser]
 
     def get(self, request: Request, thread_id: str) -> HttpResponse:
         thread = _thread_or_404(request.user, thread_id)
