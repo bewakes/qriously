@@ -4,8 +4,9 @@
 
 A learning platform, in two parts:
 
-1. **Landing designs** (nine standalone directions) — the first thing a visitor
-   sees, and the moment that has to make them feel curious.
+1. **Landing designs** (three standalone directions) — the first thing a visitor
+   sees, and the moment that has to make them feel curious. Kept as candidate
+   themes for the app's future theme switcher.
 2. **The immersive learning app** (`app/`) — the product itself: branching,
    non-linear exploration of a topic. Prototype built (mock content).
 
@@ -22,23 +23,15 @@ One screen, centered. Top to bottom:
 
 ## Structure
 
-Nine design directions, each standalone in its own folder. A root `index.html`
-acts as a chooser.
+Three design directions, each standalone in its own folder. They are kept as
+candidate themes for the app's future theme switcher; the earlier nine were
+trimmed to these (see git history for the removed directions).
 
 | Folder | Direction | Feel |
 |---|---|---|
-| `nocturne/` | Dark, glowing, animated | Deep night, aurora glow, drifting particles |
 | `daylight/` | Light, airy, editorial | Paper white, serif display, calm and trustworthy |
 | `playtime/` | Playful, colorful | Cream pop, rounded, hard shadows, confetti |
-| `blueprint/` | Technical drawing | Blueprint blue, cyan grid, dimension line, title block |
-| `riso/` | Two-spot zine | Fluorescent pink + blue, misregistration, grain |
 | `atelier/` | Luxury editorial | Near-black, gold hairlines, high-contrast Bodoni |
-| `liquidglass/` | Premium glassmorphism | Frosted panes over a fluid gradient, parallax |
-| `questlog/` | RPG adventure HUD | Parchment cards, XP bar that fills, sparkles |
-| `clay/` | Claymorphism | Puffy pastel shapes, soft dual shadows, squish |
-
-The last six were proposed and selected as a wider exploration; the user's
-feedback was that `daylight/` felt too conventional.
 
 ## Immersive learning app (`app/`)
 

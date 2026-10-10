@@ -4,8 +4,9 @@
 
 **Qriously**, a learning platform, in two parts:
 
-1. **Landing designs** — nine standalone homepage directions around the prompt
-   "What made you Qrious today?" (static; no backend).
+1. **Landing designs** — three standalone homepage directions around the prompt
+   "What made you Qrious today?" (static; no backend). Kept as candidate themes
+   for the app's future theme switcher; the earlier nine were trimmed to these.
 2. **The immersive app** (`app/`) — the product: non-linear, branching
    exploration where any phrase in an answer is a doorway. Working prototype,
    mock content, no backend.
@@ -14,10 +15,8 @@
 
 ```text
 qriously/
-├── index.html          # chooser linking to every landing design
 ├── DESIGN.md           # landing design system + rationale for each direction
-├── nocturne/ daylight/ playtime/ blueprint/ riso/ atelier/
-├── liquidglass/ questlog/ clay/          # nine landing designs
+├── daylight/ playtime/ atelier/          # three landing designs (theme candidates)
 ├── docs/               # end-to-end architecture (READ docs/ARCHITECTURE.md)
 │   ├── ARCHITECTURE.md  # thesis, stack, flows, decisions (proposed)
 │   ├── DATA-MODEL.md    # content layer + thread layer schema
@@ -39,7 +38,8 @@ frontend. Read `app/INTERACTION-SPEC.md` before changing the app, and
 
 ## Running
 
-- Landing chooser: open the root `index.html`.
+- Landing designs: open `daylight/index.html`, `playtime/index.html`, or
+  `atelier/index.html` (their brand mark links into the app).
 - App: open `app/index.html`, or `app/index.html?demo=1` for a pre-seeded
   session (questions, dives and asides), handy for screenshots/manual testing.
   `?demo=1` uses the offline mock and needs no server.
@@ -117,7 +117,8 @@ changed several times: margin rail → list+window → inline action sections �
   component extraction and token split deferred (spec v12). Notes are
   **session-scoped** (never a global across-session pile); refresh restores the
   last thread from `localStorage` without generating (spec v15).
-- Landing and app are not yet connected (landing submit is visual-only).
+- Landing submit is still visual-only (no backend); the brand mark links into
+  the app, but a landing question does not open a session yet.
 - Mobile: the actions rail stacks below the reading sheet; the composer stays
   docked. Not yet a native bottom-sheet.
 - Deliberately deferred (see spec Decision log): retrieval/consolidation

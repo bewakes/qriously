@@ -47,6 +47,10 @@ const historyMore = $("historyMore");
 const historyBtn = $("historyBtn");
 const historyNew = $("historyNew");
 const historyCollapse = $("historyCollapse");
+const brandHome = $("brandHome");
+
+const WAIT_MESSAGES = ["Considering…", "Cross-referencing…", "Composing the reply…"];
+let waitTimer = null;
 
 const KIND_LOC = { dive: "↓", ask: "↓", eli5: "→", example: "→", define: "→", note: "★" };
 const KIND_ORDER = ["dive", "ask", "eli5", "example", "define", "note"];
@@ -465,6 +469,24 @@ function addQuestion(question, options) {
   return node;
 }
 
+function startWaitNote() {
+  stopWaitNote();
+  let i = 0;
+  readingMeta.textContent = WAIT_MESSAGES[0];
+  if (reduce) return;
+  waitTimer = setInterval(() => {
+    i = (i + 1) % WAIT_MESSAGES.length;
+    readingMeta.textContent = WAIT_MESSAGES[i];
+  }, 1100);
+}
+
+function stopWaitNote() {
+  if (waitTimer) {
+    clearInterval(waitTimer);
+    waitTimer = null;
+  }
+}
+
 function updateReadingMeta(node) {
   const mins = Math.max(1, Math.round((node.estReadSeconds || 0) / 60));
   readingMeta.textContent = `≈ ${mins} min read`;
@@ -516,11 +538,18 @@ function fillContent(node) {
       applyMarks(node.id);
       updateStatus();
       renderTrail();
-      if (node.isRoot) updateReadingMeta(node);
+      if (node.isRoot) {
+        stopWaitNote();
+        updateReadingMeta(node);
+      }
     })
     .catch((err) => {
       view.fail();
       node.status = "error";
+      if (node.isRoot) {
+        stopWaitNote();
+        readingMeta.textContent = "";
+      }
       renderNodeError(node, err);
     });
 }
@@ -950,7 +979,7 @@ function startReader(question) {
 
   readingTitle.textContent = question;
   readingBody.dataset.nodeId = "root";
-  readingMeta.textContent = "streaming…";
+  startWaitNote();
 
   renderTrail();
   updateActions();
@@ -962,6 +991,7 @@ function startReader(question) {
 function restoreSession(snapshot) {
   const nodes = (snapshot && snapshot.nodes) || [];
   if (!nodes.length) return false;
+  stopWaitNote();
   const thread = snapshot.thread || {};
   if (thread.lens && Object.keys(thread.lens).length) state.lens = thread.lens;
   state.question = thread.title || nodes[0].title || "";
@@ -1158,6 +1188,7 @@ function openThread(id) {
 function newSession() {
   state.threadId = null;
   persistThreadId(null);
+  stopWaitNote();
   hideToolbar();
   state.question = "";
   state.nodes.clear();
@@ -1349,6 +1380,11 @@ notesExport.addEventListener("click", exportNotes);
 
 $("newBtn").addEventListener("click", newSession);
 historyNew.addEventListener("click", newSession);
+brandHome.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (reader.hidden) homeInput.focus();
+  else newSession();
+});
 historyCollapse.addEventListener("click", () => setHistoryOpen(false));
 historyBtn.addEventListener("click", () => setHistoryOpen(document.body.classList.contains("history-collapsed")));
 historyMore.addEventListener("click", () => loadHistory(false));
