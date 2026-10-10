@@ -193,7 +193,7 @@ threshold should be duplicated in the flow code.
 | `CACHE_HIT_RATIO` | fraction of price charged on reuse | `0.25` (never free) |
 | `SIGNUP_GRANT` | gift on account creation | `5000` micro-credits |
 | `SCREENING_POLICY` | active safety policy | `allow_all` |
-| `PROMPT_VERSION` | cache-key prompt version | `v1` |
+| `PROMPT_VERSION` | cache-key prompt version | `v4` |
 
 Pricing is `ceil(BASE_COST[kind] * DEPTH_MULTIPLIER[depth] * (hit ? CACHE_HIT_RATIO : 1))`.
 

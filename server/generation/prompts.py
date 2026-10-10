@@ -70,6 +70,12 @@ TRUST_RULE = (
     "reference."
 )
 
+FORMAT_RULE = (
+    "Format for reading: separate distinct ideas into short paragraphs with a "
+    "blank line between them, and use a markdown list when enumerating steps, "
+    "causes or examples. Never return one unbroken block of text."
+)
+
 FAMILIARITY_GUIDANCE = {
     "new": "Assume no prior knowledge; avoid jargon and define any term you use.",
     "basics": (
@@ -178,6 +184,7 @@ def build_system_prompt(lens: Mapping[str, str] | None, kind: str) -> str:
         STYLE_GUIDANCE[normalized["style"]],
         GOAL_GUIDANCE[normalized["goal"]],
         anchor_rule,
+        FORMAT_RULE,
         TRUST_RULE,
     ]
     if kind in FOLLOWUP_KINDS:

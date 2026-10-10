@@ -105,7 +105,7 @@
             <span class="actions-count" id="actionCount">0</span>
           </div>
           <ul class="side-list" id="sideList"></ul>
-          <p class="actions-empty" id="actionsEmpty">ELI5s, examples, definitions and your questions open here. Dives stack below the text.</p>
+          <p class="actions-empty" id="actionsEmpty">Simpler explanations, examples, definitions and your questions open here. Dives stack below the text.</p>
         </aside>
       </div>
     </section>
@@ -137,7 +137,7 @@
     <div class="toolbar-results" id="toolbarResults" hidden></div>
     <div class="toolbar-actions">
       <button type="button" data-act="dive">Dive in</button>
-      <button type="button" data-act="eli5">ELI5</button>
+      <button type="button" data-act="eli5">Explain</button>
       <button type="button" data-act="example">Examples</button>
       <button type="button" data-act="define">Define</button>
       <button type="button" data-act="note" class="tb-note">Save note</button>
@@ -205,6 +205,17 @@
     <ul class="note-list" id="noteList"></ul>
     <button type="button" class="notebook-export" id="notesExport" hidden>Copy as outline</button>
   </aside>
+
+  <div class="overlay" id="confirmOverlay" hidden>
+    <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+      <h2 class="confirm-title" id="confirmTitle">Delete?</h2>
+      <p class="confirm-message" id="confirmMessage"></p>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-cancel" id="confirmCancel">Cancel</button>
+        <button type="button" class="confirm-delete" id="confirmDelete">Delete</button>
+      </div>
+    </div>
+  </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

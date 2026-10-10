@@ -43,6 +43,11 @@ const notesExport = $("notesExport");
 const toastEl = $("toast");
 const historyBtn = $("historyBtn");
 const brandHome = $("brandHome");
+const confirmOverlay = $("confirmOverlay");
+const confirmTitle = $("confirmTitle");
+const confirmMessage = $("confirmMessage");
+const confirmCancel = $("confirmCancel");
+const confirmDelete = $("confirmDelete");
 
 const WAIT_MESSAGES = ["Considering…", "Cross-referencing…", "Composing the reply…"];
 let waitTimer = null;
@@ -188,19 +193,32 @@ function renderBody(raw) {
 
 function startBodyStream(el) {
   let raw = "";
+  let frame = null;
   el.classList.add("streaming");
   el.textContent = "";
+  const paint = () => {
+    frame = null;
+    el.innerHTML = renderBody(raw);
+  };
   return {
     token(text) {
       raw += text;
-      el.textContent = raw;
+      if (!frame) frame = requestAnimationFrame(paint);
     },
     finish() {
+      if (frame) {
+        cancelAnimationFrame(frame);
+        frame = null;
+      }
       el.classList.remove("streaming");
       el.innerHTML = renderBody(raw);
       return raw;
     },
     fail() {
+      if (frame) {
+        cancelAnimationFrame(frame);
+        frame = null;
+      }
       el.classList.remove("streaming");
     },
   };
@@ -280,6 +298,40 @@ function toast(message) {
   toastEl.classList.add("show");
   clearTimeout(toast._t);
   toast._t = setTimeout(() => toastEl.classList.remove("show"), 2400);
+}
+
+function confirmAction(opts) {
+  const options = opts || {};
+  confirmTitle.textContent = options.title || "Delete?";
+  confirmMessage.textContent = options.message || "This can't be undone.";
+  confirmDelete.textContent = options.confirmLabel || "Delete";
+  confirmOverlay.hidden = false;
+  confirmCancel.focus();
+  return new Promise((resolve) => {
+    const done = (result) => {
+      confirmOverlay.hidden = true;
+      confirmDelete.removeEventListener("click", onConfirm);
+      confirmCancel.removeEventListener("click", onCancel);
+      confirmOverlay.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKey);
+      resolve(result);
+    };
+    const onConfirm = () => done(true);
+    const onCancel = () => done(false);
+    const onBackdrop = (event) => {
+      if (event.target === confirmOverlay) done(false);
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        done(false);
+      }
+    };
+    confirmDelete.addEventListener("click", onConfirm);
+    confirmCancel.addEventListener("click", onCancel);
+    confirmOverlay.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKey);
+  });
 }
 
 function formatLens() {
@@ -723,6 +775,18 @@ function descendantIds(id) {
   return ids;
 }
 
+function requestRemoveSection(node) {
+  const isQuestion = node.kind === "followup";
+  const label = nodeLabel(node) || node.anchor || "this section";
+  confirmAction({
+    title: isQuestion ? "Remove follow-up?" : "Remove section?",
+    message: `Remove “${truncate(label, 80)}” and everything nested under it? This can't be undone.`,
+    confirmLabel: "Remove",
+  }).then((confirmed) => {
+    if (confirmed) removeSection(node);
+  });
+}
+
 function removeSection(node) {
   const ids = descendantIds(node.id);
   const els = ids.map((id) => state.nodes.get(id)).filter(Boolean).map((n) => n.el);
@@ -851,9 +915,11 @@ function renderToolbarResults(containerId, text) {
   });
 }
 
-function showToolbar(text, rect, containerId) {
-  state.toolbarContext = { text, containerId };
+function showToolbar(text, rect, containerId, opts) {
+  const noteOnly = !!(opts && opts.noteOnly);
+  state.toolbarContext = { text, containerId, noteOnly };
   toolbarPreview.textContent = truncate(text, 60);
+  toolbar.classList.toggle("note-only", noteOnly);
   renderToolbarResults(containerId, text);
   toolbar.hidden = false;
   const tb = toolbar.getBoundingClientRect();
@@ -1149,11 +1215,37 @@ function setHistoryOpen(open) {
 function historyItemHtml(thread) {
   const current = thread.id === state.threadId ? " current" : "";
   return (
-    `<li><button type="button" class="history-item${current}" data-id="${escapeAttr(thread.id)}">` +
+    `<li class="history-row">` +
+    `<button type="button" class="history-item${current}" data-id="${escapeAttr(thread.id)}">` +
     `<span class="hi-title">${escapeHtml(thread.title || "Untitled session")}</span>` +
     `<span class="hi-meta">${escapeHtml(relTime(thread.updated_at || thread.created_at))}</span>` +
-    `</button></li>`
+    `</button>` +
+    `<button type="button" class="history-del" data-del="${escapeAttr(thread.id)}" aria-label="Delete session" title="Delete">✕</button>` +
+    `</li>`
   );
+}
+
+function deleteSession(id) {
+  if (!id) return;
+  const thread = state.threads.find((t) => t.id === id);
+  const label = thread && thread.title ? thread.title : "this session";
+  confirmAction({
+    title: "Delete session?",
+    message: `Delete “${truncate(label, 80)}”? This can't be undone.`,
+    confirmLabel: "Delete",
+  }).then((confirmed) => {
+    if (!confirmed) return;
+    content.deleteThread(id).then((ok) => {
+      if (!ok) return toast("Couldn't delete that session");
+      state.threads = state.threads.filter((t) => t.id !== id);
+      if (id === state.threadId) {
+        resetToHome();
+        setSessionUrl(null, "replace");
+      }
+      renderHistory();
+      toast("Session deleted");
+    });
+  });
 }
 
 function renderHistory() {
@@ -1363,14 +1455,15 @@ document.addEventListener("mouseup", (event) => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
     const text = selection.toString().trim();
-    if (text.length < 2 || text.length > MAX_SELECTION) return;
+    if (text.length < 2) return;
     const range = selection.getRangeAt(0);
     const start = range.startContainer;
     const host = start.nodeType === 1 ? start : start.parentElement;
     if (host && host.closest(".as-head, button, .toolbar, .composer, .topbar, .trail")) return;
     const container = host && host.closest("[data-node-id]");
     if (!container || !container.contains(range.endContainer)) return;
-    showToolbar(text, range.getBoundingClientRect(), container.dataset.nodeId);
+    const noteOnly = text.length > MAX_SELECTION;
+    showToolbar(text, range.getBoundingClientRect(), container.dataset.nodeId, { noteOnly });
   }, 0);
 });
 
@@ -1401,6 +1494,7 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (!confirmOverlay.hidden) return;
   if (event.key === "Escape") {
     if (!toolbar.hidden) return hideToolbar();
     if (!notebook.hidden) return (notebook.hidden = true);
@@ -1417,7 +1511,7 @@ function handleSectionClick(event) {
   if (!nodeEl) return;
   const node = state.nodes.get(nodeEl.dataset.id);
   if (!node) return;
-  if (event.target.closest(".as-remove")) return removeSection(node);
+  if (event.target.closest(".as-remove")) return requestRemoveSection(node);
   if (event.target.closest(".as-source")) return focusSource(node);
   if (event.target.closest(".as-toggle, .as-anchor")) return toggleSection(node);
 }
@@ -1437,6 +1531,8 @@ brandHome.addEventListener("click", (event) => {
   else newSession();
 });
 document.addEventListener("click", (event) => {
+  const del = event.target.closest(".history-del");
+  if (del) return deleteSession(del.dataset.del);
   const item = event.target.closest(".history-item");
   if (item) return openThread(item.dataset.id);
   if (event.target.closest(".history-new")) return newSession();
