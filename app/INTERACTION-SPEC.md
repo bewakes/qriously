@@ -546,6 +546,16 @@ The visual system is **reading-first**: the prose and the branching structure ca
   bounded passage window). Span actions deliberately do **not** receive the
   trajectory, so they stay reusable; if the trajectory ever proves valuable there
   too, it would have to be reconciled with sharing.
+- **v24 (header spacing):** section/side-card headers were tightened (feedback).
+  The `.as-head` row is now a **baseline-aligned grid** rather than a flex row,
+  the toggle column shrank (22→14px) and the row gap narrowed (8→5px), so the
+  title starts closer to the toggle and — for an **`ask`** card — the toggle sits
+  on the question's first line instead of floating to the card's vertical
+  centre. The `ask` header is also **reordered**: the user's **question leads**
+  (serif italic, matching every other card title) with the selected phrase
+  **below** it (`as-ref`, mono), where previously the phrase sat on top. Wrapped
+  anchor titles also use a tighter `line-height` (1.35) so multi-line headings no
+  longer look loosely spaced.
 
 ## 21. Implementation map
 
