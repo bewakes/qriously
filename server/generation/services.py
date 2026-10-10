@@ -12,7 +12,7 @@ from django.utils import timezone
 from content.models import ContentVariant
 from content.reuse import find_variant
 from content.services import get_or_create_variant, upsert_concept
-from content.text import context_fingerprint
+from content.text import context_fingerprint, normalize
 from core.constants import DEFAULT_MODEL, PROMPT_VERSION, normalize_lens
 from core.constants import lens_bucket as make_lens_bucket
 from credits.errors import InsufficientCredits
@@ -69,8 +69,7 @@ def prepare_generation(
         raise ContentBlocked(decision.category or "unsafe")
 
     concept = upsert_concept(text)
-    parent_concept_key = _parent_concept_key(parent)
-    fingerprint = context_fingerprint(parent_concept_key)
+    fingerprint = context_fingerprint(_context_key(parent, kind, span_text))
     bucket = make_lens_bucket(effective_lens)
 
     result = find_variant(
@@ -113,6 +112,7 @@ def prepare_generation(
         kind=kind,
         lens=effective_lens,
         context=parent.title if parent is not None else None,
+        span_text=span_text,
     )
     return GenerationJob.objects.create(
         request=request_log,
@@ -221,6 +221,19 @@ def _elapsed_ms(started: float) -> int:
     return int((time.monotonic() - started) * 1000)
 
 
+def _context_key(parent: Node | None, kind: str, span_text: str | None) -> str:
+    """Cache context for a node.
+
+    An ``ask`` is a question *about a specific passage*, so the parent alone is
+    not enough to key it: the same question asked about two different phrases
+    under one parent must not reuse a single answer. Include the span there.
+    """
+    parent_key = _parent_concept_key(parent)
+    if kind == "ask" and span_text:
+        return f"{parent_key} :: {normalize(span_text)}"
+    return parent_key
+
+
 def _parent_concept_key(parent: Node | None) -> str:
     if parent is not None and parent.content_variant_id:
         return parent.content_variant.concept.key
@@ -255,7 +268,7 @@ def _finalize(
             lens=job.lens,
             title=job.concept.text,
             body=body,
-            context_key=_parent_concept_key(node.parent),
+            context_key=_context_key(node.parent, node.kind, node.anchor_text),
             prompt_version=job.prompt_version,
             model=job.model,
         )

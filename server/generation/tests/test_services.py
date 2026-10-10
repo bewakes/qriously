@@ -12,7 +12,7 @@ from credits.services import get_wallet, spend
 from generation.llm.base import StreamChunk
 from generation.llm.errors import LLMError
 from generation.models import JobStatus
-from generation.services import prepare_generation, stream_generation
+from generation.services import _context_key, prepare_generation, stream_generation
 from learning.models import NodeStatus
 from learning.services import create_thread
 
@@ -162,3 +162,10 @@ def test_upstream_error_marks_job_and_node_failed(context):
     assert job.node.status == NodeStatus.ERROR
     wallet.refresh_from_db()
     assert wallet.balance == 5000
+
+
+def test_context_key_includes_the_span_only_for_ask():
+    assert _context_key(None, "ask", "Abc") != _context_key(None, "ask", "Xyz")
+    assert _context_key(None, "ask", "Abc") == _context_key(None, "ask", "abc")
+    assert _context_key(None, "dive", "Abc") == _context_key(None, "dive", "Xyz")
+    assert _context_key(None, "ask", None) == ""
