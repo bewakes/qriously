@@ -117,7 +117,11 @@ class Note(UUIDModel, TimeStampedModel):
         Thread, on_delete=models.CASCADE, related_name="notes"
     )
     span = models.ForeignKey(
-        Span, on_delete=models.CASCADE, related_name="notes"
+        Span,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="notes",
     )
     text = models.TextField()
     context = models.TextField(blank=True)

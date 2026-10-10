@@ -1,4 +1,11 @@
-from core.constants import DEFAULT_LENS, lens_bucket, lens_vector, normalize_lens
+from core.constants import (
+    DEFAULT_LENS,
+    MAX_OUTPUT_TOKENS,
+    lens_bucket,
+    lens_vector,
+    max_output_tokens,
+    normalize_lens,
+)
 
 
 def test_normalize_lens_fills_defaults():
@@ -33,3 +40,17 @@ def test_lens_vector_is_normalized_and_ordered():
 
 def test_lens_vector_ignores_invalid_values():
     assert lens_vector({"depth": "galaxy"}) == lens_vector(None)
+
+
+def test_fixed_shape_kinds_ignore_depth():
+    assert max_output_tokens("define", "deep") == MAX_OUTPUT_TOKENS["define"]
+    assert max_output_tokens("eli5", "quick") == MAX_OUTPUT_TOKENS["eli5"]
+
+
+def test_open_ended_kinds_scale_with_depth():
+    assert max_output_tokens("root", "solid") == MAX_OUTPUT_TOKENS["root"]
+    assert max_output_tokens("dive", "deep") > max_output_tokens("dive", "quick")
+
+
+def test_unknown_kind_uses_default():
+    assert max_output_tokens("mystery", "solid") == 700

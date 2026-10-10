@@ -17,6 +17,7 @@ from core.constants import (
     BRANCH_CONTEXT_MAX_CHARS,
     DEFAULT_MODEL,
     PROMPT_VERSION,
+    max_output_tokens,
     normalize_lens,
 )
 from core.constants import lens_bucket as make_lens_bucket
@@ -196,8 +197,11 @@ async def stream_generation(
     tokens_in: int | None = None
     tokens_out: int | None = None
     splitter = _MetaSplitter() if job.kind in FOLLOWUP_KINDS else None
+    token_cap = max_output_tokens(job.kind, job.lens.get("depth", "solid"))
     try:
-        async for chunk in client.stream(job.messages, model=job.model):
+        async for chunk in client.stream(
+            job.messages, model=job.model, max_tokens=token_cap
+        ):
             if chunk.text:
                 text += chunk.text
                 emitted = splitter.feed(chunk.text) if splitter else chunk.text

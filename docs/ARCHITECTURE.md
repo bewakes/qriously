@@ -191,6 +191,7 @@ threshold should be duplicated in the flow code.
 | `BASE_COST[kind]` | credit price per action kind | dive 12 · ask 10 · eli5 6 · example 6 · define 5 · root 15 |
 | `DEPTH_MULTIPLIER` | lens depth scaling | quick 0.7 · solid 1.0 · deep 1.6 |
 | `CACHE_HIT_RATIO` | fraction of price charged on reuse | `0.25` (never free) |
+| `MAX_OUTPUT_TOKENS[kind]` | per-kind output cap sent to the model (bounds vendor cost) | dive 900 · ask 600 · eli5 320 · example 320 · define 200 · root 1200 (depth-scaled for open-ended kinds) |
 | `SIGNUP_GRANT` | gift on account creation | `5000` micro-credits |
 | `SCREENING_POLICY` | active safety policy | `allow_all` |
 | `PROMPT_VERSION` | cache-key prompt version | `v4` |

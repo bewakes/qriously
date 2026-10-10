@@ -201,15 +201,17 @@ marked `error` with an inline retry affordance. Retry reuses the same
 ## 5. Notebook
 
 ### `POST /threads/{id}/notes`
-A note is span-anchored. Anchor it either to an existing span, or to a source
-node plus the saved phrase — in which case the phrase is materialized as a
-`Span` (reused if the same phrase was already saved from that node):
+Anchor a note either to an existing span, to a source node plus the saved phrase
+— in which case the phrase is materialized as a `Span` (reused if the same
+phrase was already saved from that node) — or to nothing at all for a
+**free-form, thread-level note**:
 ```json
 { "span_id": "uuid", "text": "optional override", "tags": ["light"] }
 { "source_node_id": "uuid", "text": "scattered blue light", "context": "Why is the sky blue?" }
+{ "text": "remember: this only applies below the horizon" }
 ```
-`text` defaults to the span's text and `context` to its source node's title.
-Missing both anchors → `400`.
+`text` defaults to the span's text and `context` to its source node's title (or
+the thread title for a free note). Missing both anchors **and** `text` → `400`.
 
 ### `GET /threads/{id}/notes`
 Cursor-paginated (`?cursor=&limit=`); returns `{results, next}`.

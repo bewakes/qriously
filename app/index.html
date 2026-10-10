@@ -201,7 +201,11 @@
       <h2>Notebook</h2>
       <button type="button" class="iconbtn" id="notesClose" aria-label="Close notebook">✕</button>
     </div>
-    <p class="notebook-empty" id="notesEmpty">Saved phrases and context land here. Select text → Save note.</p>
+    <form class="note-compose" id="noteCompose" autocomplete="off">
+      <input id="noteComposeInput" type="text" placeholder="Write a note…" aria-label="New note" />
+      <button type="submit">Add</button>
+    </form>
+    <p class="notebook-empty" id="notesEmpty">Saved phrases and context land here. Select text → Save note, or write your own above.</p>
     <ul class="note-list" id="noteList"></ul>
     <button type="button" class="notebook-export" id="notesExport" hidden>Copy as outline</button>
   </aside>

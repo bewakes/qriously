@@ -1,6 +1,6 @@
 # Qriously — Immersive Learning App: Interaction Spec
 
-**Status:** Living spec · prototype implemented (`app/index.html`); current interaction is **model v25** (see §20 Decision log). Where this doc and the code differ, **the code is the source of truth** — update the doc in the same change.
+**Status:** Living spec · prototype implemented (`app/index.html`); current interaction is **model v26** (see §20 Decision log). Where this doc and the code differ, **the code is the source of truth** — update the doc in the same change.
 **Surface:** `qriously/app/` (the landing designs are untouched)
 **Scope of this doc:** product concept, interaction model, content model, and MVP plan.
 
@@ -208,6 +208,7 @@ The trail is the ordered ancestry of the current focus: `Question › A › B �
 ## 11. Notebook
 
 - Saving a span creates a note capturing: the **selected text**, its **source context** (the paragraph it lives in), the **action/kind** used, and any **generated content** attached to it.
+- A **free-form note** can also be written directly in the drawer (a compose field at its top), with no span — a placeholder for "my own note". It is still session-scoped; `context` defaults to the session's base question.
 - Notes are editable, taggable, and searchable.
 - **Assemble** (later): choose notes → produce an ordered outline/summary; export to markdown.
 - Notebook is a drawer; it must not cover the reading column on desktop (rail-width overlay is acceptable).
@@ -576,6 +577,19 @@ The visual system is **reading-first**: the prose and the branching structure ca
   **`FORMAT_RULE`** asking for paragraph breaks and lists on longer answers
   (`PROMPT_VERSION` → `v4`). Media/headings/links remain out of the renderer's
   subset.
+- **v26 (meter, token cap, free-form notes):** three parked decisions. (1) The
+  **credit meter** shows the optimistic reserve as a **pending** state (dimmed
+  value + softly pulsing dot) from the `meta` event until `usage` settles; each
+  in-flight node is tracked in `state.pendingCharges`, and a **failed**
+  generation now reconciles (drops its pending entry and re-reads
+  `GET /credits/balance` through `reconcilePending()`), so a failure no longer
+  leaves a phantom decrement. (2) Every generation now sends a **`max_tokens`**
+  cap derived from `max_output_tokens(kind, depth)` in `core/constants.py`
+  (`MAX_OUTPUT_TOKENS`; open-ended kinds scale with the depth multiplier,
+  fixed-shape kinds do not), bounding vendor cost per request. (3) The notebook
+  gains a **free-form note** compose field: a note with **no span**
+  (`Note.span` is now nullable, `on_delete=SET_NULL`), posted as a thread-level
+  note; `context` defaults to the base question.
 
 ## 21. Implementation map
 
@@ -599,7 +613,8 @@ The visual system is **reading-first**: the prose and the branching structure ca
   helpers (api-only): `listThreads(cursor)` → `GET /threads` (session history),
   `restoreThread(id)` → `GET /threads/{id}`, `saveNote(...)`
   → `POST /threads/{id}/notes`, `deleteNote(id)` → `DELETE /notes/{id}`,
-  `deleteThread(id)` → `DELETE /threads/{id}`. Errors
+  `deleteThread(id)` → `DELETE /threads/{id}`, `balance()` → `GET /credits/balance`
+  (used to reconcile the meter after a failure). Errors
   carry `.status` (402 → out-of-credits, 422 → blocked) for the node retry UI.
 - `script.js` — all behavior. `state = { lens, question, nodes, rootId, order,
   activeId, counter, toolbarContext, marks, notes, threadId, credits, threads,
@@ -635,10 +650,13 @@ The visual system is **reading-first**: the prose and the branching structure ca
   Waiting: `startWaitNote()` /
   `stopWaitNote()` cycle `WAIT_MESSAGES` in `#readingMeta`.
   Credits: `setCredits()` / `onGenerationMeta()` /
-  `onGenerationUsage()` (optimistic decrement, reconcile on `usage`, reuse shown);
-  failures render inline via `renderNodeError()` with a retry that reuses the
-  node's idempotency key (`node.idemKey`). Notes are session-scoped: `saveNote()`
-  POSTs through the adapter and `renderNotes()` deletes via `DELETE /notes/{id}`.
+  `onGenerationUsage()` (optimistic reserve shown as **pending** via
+  `state.pendingCharges`, reconcile on `usage`, reuse shown); `reconcilePending()`
+  refreshes the balance when a generation fails. Failures render inline via
+  `renderNodeError()` with a retry that reuses the node's idempotency key
+  (`node.idemKey`). Notes are session-scoped: `saveNote()` (span) and
+  `addFreeNote()` (thread-level, no span) POST through the adapter, and
+  `renderNotes()` deletes via `DELETE /notes/{id}`.
   Lens/theme/notes/composer are here too.
 - `content.js` — the **offline mock generator** kept behind its original
   signatures (`generateNode`/`generateRoot`/`generateAsk`, called by
@@ -651,6 +669,7 @@ The visual system is **reading-first**: the prose and the branching structure ca
   `.toolbar-results`/`.toolbar-result`, `.toolbar-ask` (`.toolbar.note-only`
   hides all but Save note), `.actions`, `.composer*`,
   `.history`/`.history-item`/`.history-del` (session pane), `.confirm-card`
-  (destructive-action dialog), `.bloom-pulse`.
+  (destructive-action dialog), `.note-compose` (free-form note field),
+  `.credit-meter.pending` (in-flight reserve), `.bloom-pulse`.
   The ambient/mote layers and `--energy` were removed in v6.
 - Demo: `?demo=1` seeds a session in `script.js`.

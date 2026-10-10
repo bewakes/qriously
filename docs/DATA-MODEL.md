@@ -293,17 +293,18 @@ Removing a node removes its subtree (thread edges) only — never variants.
 |---|---|---|
 | `id` | UUID pk | |
 | `thread` | FK Thread | |
-| `span` | FK Span | the saved phrase |
+| `span` | FK Span, null | the saved phrase; **null for a free-form note** |
 | `text` | text | note text (defaults to span text) |
-| `context` | text | source node title/paragraph |
+| `context` | text | source node title/paragraph, or the session title for a free note |
 | `tags` | text[] | |
 | `created_at`, `updated_at` | timestamptz | |
 
 Notes are session-scoped (`thread`), so a notebook is "everything saved in this
-session" — there is no global across-session pile. A note is span-anchored: when
-the user saves a phrase that was never branched, the service materializes the
-`Span` on demand (`get_or_create_span`, reused per source node) rather than
-adding a free-form note. Free-form / question-level notes are deferred.
+session" — there is no global across-session pile. A note is either
+**span-anchored** (when the user saves a phrase that was never branched, the
+service materializes the `Span` on demand via `get_or_create_span`, reused per
+source node) or **free-form** (a plain thread-level note with `span = null`).
+`on_delete=SET_NULL` keeps a free note alive if its span is ever removed.
 
 ---
 

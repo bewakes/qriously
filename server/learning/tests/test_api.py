@@ -211,6 +211,23 @@ def test_note_from_node_and_text_creates_and_reuses_span(client, token):
 
 
 @pytest.mark.django_db
+def test_free_form_note_needs_no_span(client, token):
+    created = make_root(client, token)
+    thread_id = created["thread"]["id"]
+    response = post(
+        client,
+        token,
+        f"/api/v1/threads/{thread_id}/notes",
+        {"text": "remember: only below the horizon"},
+    )
+    assert response.status_code == 201
+    note = response.json()
+    assert note["text"] == "remember: only below the horizon"
+    assert note["span_id"] is None
+    assert note["context"] == "Why is the sky blue?"
+
+
+@pytest.mark.django_db
 def test_note_requires_span_or_node_and_text(client, token):
     created = make_root(client, token)
     thread_id = created["thread"]["id"]
