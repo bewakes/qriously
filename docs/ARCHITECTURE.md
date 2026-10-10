@@ -97,7 +97,10 @@ The lens is four enums (defaults from the spec):
 
 `context_fingerprint` is a bounded hash of the immediate parent concept, not the
 whole ancestry, so deep chains still share top-level explanations while
-ambiguous spans stay context-sensitive.
+ambiguous spans stay context-sensitive. For an **`ask`** the key also folds in
+the selected span: the same question asked about two different phrases under one
+parent must not collapse to one cached answer (the question is the concept, so
+without the span they would otherwise collide).
 
 ## 4. Stack
 

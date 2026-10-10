@@ -47,3 +47,30 @@ def test_build_messages_shape():
     assert [m["role"] for m in messages] == ["system", "user"]
     assert "Rayleigh scattering" in messages[1]["content"]
     assert messages[0]["content"] == build_system_prompt(LENS, "dive")
+
+
+def test_ask_prompt_includes_the_passage_and_the_question():
+    messages = build_messages(
+        text="What is this?",
+        kind="ask",
+        lens=LENS,
+        context="Why is the sky blue?",
+        span_text="Rayleigh scattering",
+    )
+    user = messages[1]["content"]
+    assert "Rayleigh scattering" in user
+    assert "What is this?" in user
+    assert user.index("Rayleigh scattering") < user.index("What is this?")
+    assert "Context this came from: Why is the sky blue?" in user
+
+
+def test_non_ask_prompt_ignores_the_passage_slot():
+    messages = build_messages(
+        text="Rayleigh scattering", kind="dive", lens=LENS, span_text="ignored"
+    )
+    assert "ignored" not in messages[1]["content"]
+
+
+def test_ask_prompt_without_a_passage_falls_back_to_explain():
+    messages = build_messages(text="What is this?", kind="ask", lens=LENS)
+    assert messages[1]["content"] == "Explain: What is this?"

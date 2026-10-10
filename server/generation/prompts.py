@@ -106,8 +106,20 @@ def _kind_rules(kind: str, depth: str) -> tuple[str, str]:
     return DEPTH_GUIDANCE[depth], ANCHOR_RULE
 
 
-def build_user_prompt(*, text: str, kind: str, context: str | None = None) -> str:
-    lines = [f"Explain: {text}"]
+def build_user_prompt(
+    *,
+    text: str,
+    kind: str,
+    context: str | None = None,
+    span_text: str | None = None,
+) -> str:
+    if kind == "ask" and span_text:
+        lines = [
+            f"Passage: {span_text}",
+            f"Question about the passage: {text}",
+        ]
+    else:
+        lines = [f"Explain: {text}"]
     if context:
         lines.append(f"Context this came from: {context}")
     return "\n".join(lines)
@@ -119,8 +131,11 @@ def build_messages(
     kind: str,
     lens: Mapping[str, str] | None,
     context: str | None = None,
+    span_text: str | None = None,
 ) -> list[dict[str, str]]:
-    user = build_user_prompt(text=text, kind=kind, context=context)
+    user = build_user_prompt(
+        text=text, kind=kind, context=context, span_text=span_text
+    )
     return [
         {"role": "system", "content": build_system_prompt(lens, kind)},
         {"role": "user", "content": user},

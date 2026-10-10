@@ -50,22 +50,23 @@ frontend. Read `app/INTERACTION-SPEC.md` before changing the app, and
   `docs/PLAN.md`. Checks: `ruff check .` and `pytest` (needs the Postgres
   container). `DEEPSEEK_API_KEY` in `server/.env` enables real generation.
 
-## The app (current model — v8)
+## The app (current model — v20)
 
 Read `app/INTERACTION-SPEC.md` for the full spec and the decision log (the model
 changed several times: margin rail → list+window → inline action sections →
 **dives inline, asides on the side**). The short version:
 
-- **Home:** centered hero input. Submit → **Calibration lens** (familiarity,
+- **Home:** a session-history pane (when the device has sessions) beside the
+  centered hero input. Submit → **Calibration lens** (familiarity,
   depth, style, goal; skippable; non-PII) → **Reader**.
 - **Reader:** a reading *sheet* with the answer, plus:
   - **Dive sections** — only **Dive in** renders as a collapsible section
     **below the content**, titled with the selected phrase; dives nest
     recursively. Collapse via the toggle **or the title**; `↩` jumps to the
     source phrase; remove via ✕. No `L#` depth labels.
-  - **Wider angles** (right rail) — **ELI5 / Examples / Define** render as
+  - **Wider angles** (right rail) — **Ask… / ELI5 / Examples / Define** render as
     collapsible **cards** on the side. Selecting inside any card and choosing a
-    kind routes by kind: dives go below, asides stay in the rail.
+    kind routes by kind: only dives go below; asides and asks stay in the rail.
   - **Trail** — breadcrumb of the active path; the leading crumb is the base
     question.
   - **Composer** — a persistent bottom "ask" box (reader-only); submitting
@@ -78,8 +79,10 @@ changed several times: margin rail → list+window → inline action sections �
   **results menu** — existing results (click to jump + expand) plus the action
   buttons; clicking the marker jumps when there is one result, opens the menu
   when there are several. The toolbar also has a small free-text **Ask** field
-  that turns a question about the span into one inline `ask` section
-  (single-shot; no chat/thread state).
+  that turns a question about the span into one `ask` side card (single-shot;
+  no chat/thread state).
+- **Sessions in the URL:** the active session lives in the address bar
+  (`?session=<thread id>`); boot restores from it and back/forward navigate.
 - **Look:** calm near-flat dark canvas. A single accent; no ambient blobs, motes
   or gradient/glow effects (the earlier "Lumen" energy model was removed).
   Bloom-on-action, unfolding transitions and the serif drop cap remain.
@@ -115,8 +118,9 @@ changed several times: margin rail → list+window → inline action sections �
   `docs/PLAN.md` are complete; Phase 4's functional wiring is done (including
   `GET /threads/{id}` restore and `POST /threads/{id}/notes`), with the `src/`
   component extraction and token split deferred (spec v12). Notes are
-  **session-scoped** (never a global across-session pile); refresh restores the
-  last thread from `localStorage` without generating (spec v15).
+  **session-scoped** (never a global across-session pile); the active session is
+  driven by the `?session=` URL and restored on refresh without generating
+  (spec v19). The session-history pane shows on Home too (spec v20).
 - Landing submit is still visual-only (no backend); the brand mark links into
   the app, but a landing question does not open a session yet.
 - Mobile: the actions rail stacks below the reading sheet; the composer stays

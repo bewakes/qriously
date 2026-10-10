@@ -41,20 +41,16 @@ const notesEmpty = $("notesEmpty");
 const noteList = $("noteList");
 const notesExport = $("notesExport");
 const toastEl = $("toast");
-const historyList = $("historyList");
-const historyEmpty = $("historyEmpty");
-const historyMore = $("historyMore");
 const historyBtn = $("historyBtn");
-const historyNew = $("historyNew");
-const historyCollapse = $("historyCollapse");
 const brandHome = $("brandHome");
 
 const WAIT_MESSAGES = ["Considering…", "Cross-referencing…", "Composing the reply…"];
 let waitTimer = null;
 
-const KIND_LOC = { dive: "↓", ask: "↓", eli5: "→", example: "→", define: "→", note: "★" };
+const KIND_LOC = { dive: "↓", ask: "→", eli5: "→", example: "→", define: "→", note: "★" };
 const KIND_ORDER = ["dive", "ask", "eli5", "example", "define", "note"];
-const SIDE_KINDS = new Set(["eli5", "example", "define"]);
+const SIDE_KINDS = new Set(["ask", "eli5", "example", "define"]);
+const MAX_SELECTION = 800;
 
 const state = {
   lens: { familiarity: "basics", depth: "solid", style: "plain", goal: "curious" },
@@ -77,20 +73,18 @@ const state = {
 
 const content = window.QriouslyContent;
 
-const THREAD_KEY = "qriously-thread-id";
-
-function readThreadId() {
-  try {
-    return localStorage.getItem(THREAD_KEY);
-  } catch (e) {
-    return null;
-  }
+function sessionParam() {
+  return new URLSearchParams(location.search).get("session");
 }
 
-function persistThreadId(id) {
+function setSessionUrl(id, mode) {
+  if (new URLSearchParams(location.search).has("demo")) return;
   try {
-    if (id) localStorage.setItem(THREAD_KEY, id);
-    else localStorage.removeItem(THREAD_KEY);
+    const url = new URL(location.href);
+    if (id) url.searchParams.set("session", id);
+    else url.searchParams.delete("session");
+    const method = mode === "replace" ? "replaceState" : "pushState";
+    history[method]({ session: id || null }, "", url.pathname + url.search);
   } catch (e) {}
 }
 
@@ -121,6 +115,13 @@ function truncate(text, n) {
 
 function nodeLabel(node) {
   return node.kind === "ask" ? node.title : node.anchor;
+}
+
+function askHeading(refText, question) {
+  return (
+    `<span class="as-ref">“${escapeHtml(refText)}”</span>` +
+    `<span class="as-q">${escapeHtml(question)}</span>`
+  );
 }
 
 function inlineBody(text) {
@@ -350,12 +351,12 @@ function createSection(containerId, anchor, kind, options) {
   };
   state.nodes.set(id, node);
 
-  const isInline = kind === "dive" || kind === "ask";
+  const isInline = kind === "dive";
   const el = document.createElement(isInline ? "section" : "li");
   el.className = isInline ? `action-section kind-${kind}` : `side-card kind-${kind}`;
   el.dataset.id = id;
   el.dataset.depth = String(depth);
-  const heading = kind === "ask" ? escapeHtml(node.title) : `“${escapeHtml(clean)}”`;
+  const heading = kind === "ask" ? askHeading(clean, node.title) : `“${escapeHtml(clean)}”`;
   el.innerHTML = `
     <header class="as-head">
       <button type="button" class="as-toggle" aria-expanded="true" aria-label="Collapse">▼</button>
@@ -523,14 +524,14 @@ function fillContent(node) {
       if (data.title && node.kind === "ask") {
         node.title = data.title;
         const anchorBtn = node.el.querySelector(".as-anchor");
-        if (anchorBtn) anchorBtn.textContent = data.title;
+        if (anchorBtn) anchorBtn.innerHTML = askHeading(node.anchor, data.title);
       }
       node.citations = data.citations || [];
       node.estReadSeconds = data.estReadSeconds || 0;
       node.remoteId = data.nodeId || node.remoteId;
       if (node.isRoot && data.threadId) {
         state.threadId = data.threadId;
-        persistThreadId(data.threadId);
+        setSessionUrl(data.threadId, "push");
         loadHistory(true);
       } else {
         renderHistory();
@@ -935,10 +936,11 @@ function exportNotes() {
 function startReader(question) {
   state.question = question;
   state.threadId = null;
-  persistThreadId(null);
+  setSessionUrl(null, "replace");
   home.hidden = true;
   reader.hidden = false;
   historyBtn.hidden = false;
+  applyHistoryOpen();
   lensChip.hidden = false;
   lensChipText.textContent = formatLens();
   composer.hidden = false;
@@ -999,6 +1001,7 @@ function restoreSession(snapshot) {
   home.hidden = true;
   reader.hidden = false;
   historyBtn.hidden = false;
+  applyHistoryOpen();
   lensChip.hidden = false;
   lensChipText.textContent = formatLens();
   composer.hidden = false;
@@ -1015,7 +1018,6 @@ function restoreSession(snapshot) {
   actionsEmpty.hidden = false;
   actionCount.textContent = "0";
   state.threadId = thread.id || null;
-  persistThreadId(state.threadId);
 
   const spanById = new Map();
   (snapshot.spans || []).forEach((span) => spanById.set(span.id, span));
@@ -1112,32 +1114,51 @@ function relTime(iso) {
   return new Date(iso).toLocaleDateString();
 }
 
-function setHistoryOpen(open) {
+function historyPref() {
+  try {
+    return localStorage.getItem("qriously-history-open");
+  } catch (e) {
+    return null;
+  }
+}
+
+function applyHistoryOpen() {
+  const pref = historyPref();
+  const open = pref === null ? !reader.hidden : pref === "1";
   document.body.classList.toggle("history-collapsed", !open);
   historyBtn.setAttribute("aria-expanded", String(open));
+}
+
+function setHistoryOpen(open) {
   try {
     localStorage.setItem("qriously-history-open", open ? "1" : "0");
   } catch (e) {}
+  applyHistoryOpen();
+}
+
+function historyItemHtml(thread) {
+  const current = thread.id === state.threadId ? " current" : "";
+  return (
+    `<li><button type="button" class="history-item${current}" data-id="${escapeAttr(thread.id)}">` +
+    `<span class="hi-title">${escapeHtml(thread.title || "Untitled session")}</span>` +
+    `<span class="hi-meta">${escapeHtml(relTime(thread.updated_at || thread.created_at))}</span>` +
+    `</button></li>`
+  );
 }
 
 function renderHistory() {
-  historyList.innerHTML = "";
-  historyEmpty.hidden = state.threads.length > 0;
-  state.threads.forEach((thread) => {
-    const li = document.createElement("li");
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "history-item" + (thread.id === state.threadId ? " current" : "");
-    btn.dataset.id = thread.id;
-    btn.innerHTML = `
-      <span class="hi-title">${escapeHtml(thread.title || "Untitled session")}</span>
-      <span class="hi-meta">${escapeHtml(relTime(thread.updated_at || thread.created_at))}</span>
-    `;
-    btn.addEventListener("click", () => openThread(thread.id));
-    li.appendChild(btn);
-    historyList.appendChild(li);
+  const html = state.threads.map(historyItemHtml).join("");
+  document.querySelectorAll(".history-list").forEach((list) => {
+    list.innerHTML = html;
   });
-  historyMore.hidden = state.historyDone || state.threads.length === 0;
+  document.querySelectorAll(".history-empty").forEach((el) => {
+    el.hidden = state.threads.length > 0;
+  });
+  document.querySelectorAll(".history-more").forEach((el) => {
+    el.hidden = state.historyDone || state.threads.length === 0;
+  });
+  home.classList.toggle("has-history", state.threads.length > 0);
+  historyBtn.hidden = reader.hidden && state.threads.length === 0;
 }
 
 function loadHistory(reset) {
@@ -1177,6 +1198,7 @@ function openThread(id) {
   content.restoreThread(id).then((snapshot) => {
     if (snapshot && snapshot.nodes && snapshot.nodes.length) {
       restoreSession(snapshot);
+      setSessionUrl(id, "push");
       toast("Session loaded");
     } else {
       toast("Couldn't load that session");
@@ -1185,9 +1207,8 @@ function openThread(id) {
   });
 }
 
-function newSession() {
+function resetToHome() {
   state.threadId = null;
-  persistThreadId(null);
   stopWaitNote();
   hideToolbar();
   state.question = "";
@@ -1208,6 +1229,7 @@ function newSession() {
   historyBtn.hidden = true;
   lensChip.hidden = true;
   home.hidden = false;
+  applyHistoryOpen();
   renderNotes();
   updateNoteCount();
   renderTrail();
@@ -1215,6 +1237,27 @@ function newSession() {
   window.scrollTo({ top: 0, behavior: "auto" });
   homeInput.focus();
 }
+
+function newSession() {
+  resetToHome();
+  setSessionUrl(null, "push");
+}
+
+function applyRoute() {
+  const id = sessionParam();
+  if (!id) {
+    if (!reader.hidden) resetToHome();
+    return;
+  }
+  if (id === state.threadId) return;
+  content.restoreThread(id).then((snapshot) => {
+    if (snapshot && snapshot.nodes && snapshot.nodes.length) restoreSession(snapshot);
+    else resetToHome();
+    renderHistory();
+  });
+}
+
+window.addEventListener("popstate", applyRoute);
 
 function openLens(question) {
   state.question = question;
@@ -1310,9 +1353,8 @@ document.addEventListener("mouseup", (event) => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
     const text = selection.toString().trim();
-    if (text.length < 2) return;
+    if (text.length < 2 || text.length > MAX_SELECTION) return;
     const range = selection.getRangeAt(0);
-    if (range.getClientRects().length > 4) return;
     const start = range.startContainer;
     const host = start.nodeType === 1 ? start : start.parentElement;
     if (host && host.closest(".as-head, button, .toolbar, .composer, .topbar, .trail")) return;
@@ -1379,26 +1421,24 @@ notesClose.addEventListener("click", () => (notebook.hidden = true));
 notesExport.addEventListener("click", exportNotes);
 
 $("newBtn").addEventListener("click", newSession);
-historyNew.addEventListener("click", newSession);
 brandHome.addEventListener("click", (event) => {
   event.preventDefault();
   if (reader.hidden) homeInput.focus();
   else newSession();
 });
-historyCollapse.addEventListener("click", () => setHistoryOpen(false));
+document.addEventListener("click", (event) => {
+  const item = event.target.closest(".history-item");
+  if (item) return openThread(item.dataset.id);
+  if (event.target.closest(".history-new")) return newSession();
+  if (event.target.closest(".history-more")) return loadHistory(false);
+  if (event.target.closest(".history-collapse")) return setHistoryOpen(false);
+});
 historyBtn.addEventListener("click", () => setHistoryOpen(document.body.classList.contains("history-collapsed")));
-historyMore.addEventListener("click", () => loadHistory(false));
 
 initTheme();
 renderNotes();
 updateNoteCount();
-setHistoryOpen((() => {
-  try {
-    return localStorage.getItem("qriously-history-open") !== "0";
-  } catch (e) {
-    return true;
-  }
-})());
+applyHistoryOpen();
 renderHistory();
 
 const params = new URLSearchParams(location.search);
@@ -1419,11 +1459,15 @@ content.init().then((info) => {
     showConnection("api");
     setCredits(info.balance);
     loadHistory(true);
-    const savedThread = readThreadId();
-    if (savedThread && !params.has("demo")) {
-      content.restoreThread(savedThread).then((snapshot) => {
-        if (snapshot && snapshot.nodes && snapshot.nodes.length) restoreSession(snapshot);
-        else persistThreadId(null);
+    const urlSession = sessionParam();
+    if (urlSession && !params.has("demo")) {
+      content.restoreThread(urlSession).then((snapshot) => {
+        if (snapshot && snapshot.nodes && snapshot.nodes.length) {
+          restoreSession(snapshot);
+        } else {
+          setSessionUrl(null, "replace");
+          toast("That session is no longer available");
+        }
         renderHistory();
       });
     }

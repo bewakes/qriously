@@ -45,22 +45,33 @@
     </header>
 
     <section class="home" id="home">
-      <p class="eyebrow">Follow your curiosity · one phrase at a time</p>
-      <h1 class="home-title">What made you <em>Qrious</em> today?</h1>
-      <form class="home-ask" id="homeForm" autocomplete="off">
-        <span class="home-ask-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-            <path d="M12 17h.01" />
-          </svg>
-        </span>
-        <input id="homeInput" type="text" placeholder="I've always wondered…" aria-label="What made you Qrious today?" />
-        <button type="submit">Ask</button>
-      </form>
-      <div class="home-samples">
-        <button type="button" data-q="Why is the sky blue?">Why is the sky blue?</button>
-        <button type="button" data-q="How do black holes bend time?">How do black holes bend time?</button>
-        <button type="button" data-q="Can you learn a language while you sleep?">Learn a language while you sleep?</button>
+      <aside class="history home-history" aria-label="Session history">
+        <div class="history-head">
+          <span class="history-title">Sessions</span>
+          <button type="button" class="history-collapse" aria-label="Collapse session history" title="Collapse">«</button>
+        </div>
+        <ul class="history-list"></ul>
+        <p class="history-empty">Your past sessions appear here.</p>
+        <button type="button" class="history-more" hidden>Load more</button>
+      </aside>
+      <div class="home-main">
+        <p class="eyebrow">Follow your curiosity · one phrase at a time</p>
+        <h1 class="home-title">What made you <em>Qrious</em> today?</h1>
+        <form class="home-ask" id="homeForm" autocomplete="off">
+          <span class="home-ask-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <path d="M12 17h.01" />
+            </svg>
+          </span>
+          <input id="homeInput" type="text" placeholder="I've always wondered…" aria-label="What made you Qrious today?" />
+          <button type="submit">Ask</button>
+        </form>
+        <div class="home-samples">
+          <button type="button" data-q="Why is the sky blue?">Why is the sky blue?</button>
+          <button type="button" data-q="How do black holes bend time?">How do black holes bend time?</button>
+          <button type="button" data-q="Can you learn a language while you sleep?">Learn a language while you sleep?</button>
+        </div>
       </div>
     </section>
 
@@ -70,12 +81,12 @@
         <aside class="history" id="history" aria-label="Session history">
           <div class="history-head">
             <span class="history-title">Sessions</span>
-            <button type="button" class="history-new" id="historyNew" aria-label="Start a new session" title="New session">＋</button>
-            <button type="button" class="history-collapse" id="historyCollapse" aria-label="Collapse session history" title="Collapse">«</button>
+            <button type="button" class="history-new" aria-label="Start a new session" title="New session">＋</button>
+            <button type="button" class="history-collapse" aria-label="Collapse session history" title="Collapse">«</button>
           </div>
-          <ul class="history-list" id="historyList"></ul>
-          <p class="history-empty" id="historyEmpty">Your past sessions appear here.</p>
-          <button type="button" class="history-more" id="historyMore" hidden>Load more</button>
+          <ul class="history-list"></ul>
+          <p class="history-empty">Your past sessions appear here.</p>
+          <button type="button" class="history-more" hidden>Load more</button>
         </aside>
 
         <article class="reading">
@@ -94,7 +105,7 @@
             <span class="actions-count" id="actionCount">0</span>
           </div>
           <ul class="side-list" id="sideList"></ul>
-          <p class="actions-empty" id="actionsEmpty">ELI5s, examples and definitions open here. Dives stack below the text.</p>
+          <p class="actions-empty" id="actionsEmpty">ELI5s, examples, definitions and your questions open here. Dives stack below the text.</p>
         </aside>
       </div>
     </section>
