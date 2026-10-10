@@ -19,17 +19,29 @@
       mode = "mock";
       return Promise.resolve({ mode: mode, balance: null, reason: "demo" });
     }
+    if (!API.hasToken()) {
+      mode = "guest";
+      return Promise.resolve({ mode: mode, balance: null, reason: "login_required" });
+    }
     return API.me()
-      .then(function () {
-        return API.balance();
-      })
-      .then(function (wallet) {
-        mode = "api";
-        return { mode: mode, balance: wallet.balance, reason: "live" };
+      .then(function (me) {
+        if (me && me.user && me.user.is_anonymous_device) {
+          mode = "guest";
+          return { mode: mode, balance: null, reason: "claim_required" };
+        }
+        return API.balance().then(function (wallet) {
+          mode = "api";
+          return { mode: mode, balance: wallet.balance, reason: "live" };
+        });
       })
       .catch(function (err) {
+        if (err && (err.status === 401 || err.code === "login_required")) {
+          API.clearToken();
+          mode = "guest";
+          return { mode: mode, balance: null, reason: "login_required" };
+        }
         mode = "mock";
-        return { mode: mode, balance: null, reason: err && err.message };
+        return { mode: mode, balance: null, reason: (err && err.message) || "offline" };
       });
   }
 
@@ -249,6 +261,15 @@
 
   window.QriouslyContent = {
     init: init,
+    loginStart: function (email) {
+      return API.loginStart(email);
+    },
+    login: function (email, code) {
+      return API.login(email, code);
+    },
+    logout: function () {
+      return API.logout();
+    },
     startRoot: startRoot,
     streamBranch: streamBranch,
     listThreads: listThreads,

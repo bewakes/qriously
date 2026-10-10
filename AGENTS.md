@@ -43,6 +43,10 @@ frontend. Read `app/INTERACTION-SPEC.md` before changing the app, and
 - App: open `app/index.html`, or `app/index.html?demo=1` for a pre-seeded
   session (questions, dives and asides), handy for screenshots/manual testing.
   `?demo=1` uses the offline mock and needs no server.
+- Local dev: `scripts/dev.sh {start|stop|restart|status|logs|migrate|setup|open}`
+  runs the API (uvicorn, :8000) and a **no-store** static server for the app
+  (`scripts/serve.py`, :8080) so refreshes never serve stale JS/CSS. `restart`
+  applies migrations. Login codes print to the API log (`scripts/dev.sh logs`).
 - Serve anything: `python3 -m http.server 8000` (app at `/app/`).
 - Backend: `cd server && docker compose up -d db`, then
   `python manage.py migrate && python manage.py seed_content`, then
@@ -50,15 +54,19 @@ frontend. Read `app/INTERACTION-SPEC.md` before changing the app, and
   `docs/PLAN.md`. Checks: `ruff check .` and `pytest` (needs the Postgres
   container). `DEEPSEEK_API_KEY` in `server/.env` enables real generation.
 
-## The app (current model — v20)
+## The app (current model — v27)
 
 Read `app/INTERACTION-SPEC.md` for the full spec and the decision log (the model
 changed several times: margin rail → list+window → inline action sections →
 **dives inline, asides on the side**). The short version:
 
-- **Home:** a session-history pane (when the device has sessions) beside the
-  centered hero input. Submit → **Calibration lens** (familiarity,
-  depth, style, goal; skippable; non-PII) → **Reader**.
+- **Login:** with no token, guests land on a **"Welcome to Qriously"** login
+  screen (Continue with email → console code) with sample cards that open the
+  offline mock. **Sign out** (top bar, `POST /auth/logout`) revokes the server
+  session and returns here. Authenticated →
+  **Home:** a session-history pane (when the account has sessions) beside the
+  centered hero input ("What made you Qrious today?"). Submit → **Calibration
+  lens** (familiarity, depth, style, goal; skippable; non-PII) → **Reader**.
 - **Reader:** a reading *sheet* with the answer, plus:
   - **Dive sections** — only **Dive in** renders as a collapsible section
     **below the content**, titled with the selected phrase; dives nest
@@ -117,16 +125,20 @@ changed several times: margin rail → list+window → inline action sections �
 
 ### Known limitations / next steps
 
-- The app is wired to the backend (`app/api.js` + `app/adapter.js`): device auth,
-  streamed generation, a credit meter, inline error/retry, session restore and
-  server-backed notes, plus an offline fallback to the mock (`content.js`)
-  selected at boot. `?demo=1` still runs the mock with no server. Phases 1–3 of
-  `docs/PLAN.md` are complete; Phase 4's functional wiring is done (including
-  `GET /threads/{id}` restore and `POST /threads/{id}/notes`), with the `src/`
-  component extraction and token split deferred (spec v12). Notes are
+- The app is wired to the backend (`app/api.js` + `app/adapter.js`): **login-gated
+  auth** (email → console-printed code; `POST /auth/login`), streamed generation,
+  a credit meter, inline error/retry, session restore and server-backed notes,
+  plus an offline fallback to the mock (`content.js`) selected at boot. Guests
+  (no token) land on a **login screen** with sample cards that open the mock
+  (`?demo=1&q=…`); generation requires a registered account
+  (`IsRegisteredUser`; anonymous gets `403 login_required`). An existing local
+  anonymous session is **claimed in place** on first login (threads, notebook and
+  wallet preserved; same user id). `?demo=1` still runs the mock with no server.
+  Phases 1–4.5 of `docs/PLAN.md` are complete. Notes are
   **session-scoped** (never a global across-session pile); the active session is
   driven by the `?session=` URL and restored on refresh without generating
-  (spec v19). The session-history pane shows on Home too (spec v20).
+  (spec v19). The session-history pane shows on Home too (spec v20). Login gate
+  is spec v27.
 - Landing submit is still visual-only (no backend); the brand mark links into
   the app, but a landing question does not open a session yet.
 - Mobile: the actions rail stacks below the reading sheet; the composer stays
@@ -164,6 +176,16 @@ changed several times: margin rail → list+window → inline action sections �
   reusable) referenced by per-user `Thread`/`Span`/`Node`. Reuse is a reference,
   never a copy. `ContentVariant` rows are immutable — a new `prompt_version`
   instead of an update.
+- **Identity is login-gated.** `User` + `Session` (opaque token, hash stored);
+  providers live in framework-free `accounts/providers.py` (`dev` console code;
+  `google` stub), selected by `AUTH_PROVIDER`. `accounts/services.py::login`
+  resolves a verified identity and issues a fresh session, **claiming an
+  anonymous session in place** (keeps threads/notes/wallet) on first login.
+  For history spread across several anonymous sessions, the offline
+  `manage.py claim_session --email … [--from <id>|--all-anonymous]` reattaches
+  their threads to an account (notes follow). Generation/thread/note endpoints
+  use `IsRegisteredUser`; anonymous sessions cannot spend. No special-casing by
+  identity.
 - Credits are integer micro-credits in an append-only `CreditEntry` ledger;
   balance is a cached sum guarded by `select_for_update`. Never a float.
 - A **screening layer** (`safety/`) runs before any spend; MVP policy is
@@ -174,7 +196,8 @@ changed several times: margin rail → list+window → inline action sections �
 - **Cache hits are charged** a configurable fraction (`CACHE_HIT_RATIO`), never
   free.
 - All tunables (model id, prices, per-kind costs, depth multipliers, cache ratio,
-  signup grant, screening policy, prompt version) live in `core/constants.py`,
+  signup grant, auth provider, login-code TTL/length, screening policy, prompt
+  version) live in `core/constants.py`,
   not scattered literals.
 - Generation requests carry an `Idempotency-Key`; debit is reserve→settle, and
   failures refund. Never charge for a failed generation.

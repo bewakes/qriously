@@ -39,6 +39,19 @@
     }
   }
 
+  function clearToken() {
+    token = null;
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  function hasToken() {
+    return !!token;
+  }
+
   function authHeaders(extra) {
     var headers = Object.assign({ "Content-Type": "application/json" }, extra || {});
     if (token) headers.Authorization = "Bearer " + token;
@@ -74,9 +87,30 @@
 
   async function ensureAuth() {
     if (token) return token;
-    var data = await request("POST", "/auth/device", {});
+    var err = new Error("login_required");
+    err.code = "login_required";
+    err.status = 401;
+    throw err;
+  }
+
+  async function loginStart(email) {
+    return request("POST", "/auth/login/start", { email: email });
+  }
+
+  async function login(email, code) {
+    var data = await request("POST", "/auth/login", { email: email, code: code });
+    if (!data || !data.token) throw apiError(0, null, "login_failed");
     storeToken(data.token);
-    return token;
+    return data;
+  }
+
+  async function logout() {
+    try {
+      if (token) await request("POST", "/auth/logout");
+    } catch (e) {
+      /* best effort — clear the local token regardless */
+    }
+    clearToken();
   }
 
   async function me() {
@@ -188,6 +222,11 @@
   window.QriouslyAPI = {
     base: base,
     ensureAuth: ensureAuth,
+    hasToken: hasToken,
+    clearToken: clearToken,
+    loginStart: loginStart,
+    login: login,
+    logout: logout,
     me: me,
     balance: balance,
     get: get,

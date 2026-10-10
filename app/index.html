@@ -22,7 +22,6 @@
             </svg>
           </span>
           <span class="brand-name">Qriously</span>
-          <span class="brand-tag">Lumen</span>
         </a>
         <button type="button" class="iconbtn" id="historyBtn" aria-label="Toggle session history" aria-expanded="true" title="Sessions" hidden>☰</button>
       </div>
@@ -41,6 +40,7 @@
           Notebook <span class="count" id="noteCount">0</span>
         </button>
         <button type="button" class="iconbtn" id="newBtn" title="New session">＋</button>
+        <button type="button" class="iconbtn" id="logoutBtn" title="Sign out">Sign out</button>
       </div>
     </header>
 
@@ -72,6 +72,54 @@
           <button type="button" data-q="How do black holes bend time?">How do black holes bend time?</button>
           <button type="button" data-q="Can you learn a language while you sleep?">Learn a language while you sleep?</button>
         </div>
+      </div>
+    </section>
+
+    <section class="login" id="login" hidden aria-labelledby="loginTitle">
+      <div class="login-card">
+        <p class="eyebrow">Start curious · leave with mastery</p>
+        <h1 class="login-title" id="loginTitle">Welcome to <em>Qriously</em></h1>
+
+        <div class="login-demo">
+          <p class="login-demo-label">Explore some example Qriosities</p>
+          <div class="login-cards">
+            <button type="button" class="demo-card" data-demo="Why is the sky blue?">
+              <span class="demo-card-k">Physics</span>
+              <span class="demo-card-t">Why is the sky blue?</span>
+              <span class="demo-card-d">Open a pre-built session and branch through it.</span>
+            </button>
+            <button type="button" class="demo-card" data-demo="How do black holes bend time?">
+              <span class="demo-card-k">Cosmology</span>
+              <span class="demo-card-t">How do black holes bend time?</span>
+              <span class="demo-card-d">See how a question unfolds into dives and wider angles.</span>
+            </button>
+            <button type="button" class="demo-card" data-demo="Can you learn a language while you sleep?">
+              <span class="demo-card-k">Mind</span>
+              <span class="demo-card-t">Learn a language while you sleep?</span>
+              <span class="demo-card-d">A sample with notes saved to the notebook.</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="login-auth">
+          <p class="login-sub">
+            Sign in for the full experience — ask anything, and keep your threads and notebook with you.
+          </p>
+          <button type="button" class="login-cta" id="loginStartBtn">Continue with email</button>
+          <form class="login-form" id="loginForm" autocomplete="off" hidden>
+            <div class="login-step" id="loginEmailStep">
+              <input id="loginEmail" type="email" placeholder="you@example.com" aria-label="Email address" />
+              <button type="submit" id="loginSendBtn">Send code</button>
+            </div>
+            <div class="login-step login-code-step" id="loginCodeStep" hidden>
+              <input id="loginCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="One-time code" aria-label="One-time code" />
+              <button type="submit" id="loginVerifyBtn">Sign in</button>
+              <button type="button" class="login-back" id="loginBack">Change email</button>
+            </div>
+          </form>
+        </div>
+
+        <p class="login-status" id="loginStatus" role="status" aria-live="polite"></p>
       </div>
     </section>
 

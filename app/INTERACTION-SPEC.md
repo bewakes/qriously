@@ -1,6 +1,6 @@
 # Qriously — Immersive Learning App: Interaction Spec
 
-**Status:** Living spec · prototype implemented (`app/index.html`); current interaction is **model v26** (see §20 Decision log). Where this doc and the code differ, **the code is the source of truth** — update the doc in the same change.
+**Status:** Living spec · prototype implemented (`app/index.html`); current interaction is **model v27** (see §20 Decision log). Where this doc and the code differ, **the code is the source of truth** — update the doc in the same change.
 **Surface:** `qriously/app/` (the landing designs are untouched)
 **Scope of this doc:** product concept, interaction model, content model, and MVP plan.
 
@@ -594,19 +594,25 @@ The visual system is **reading-first**: the prose and the branching structure ca
 ## 21. Implementation map
 
 - `index.html` — app shell: top bar (lens chip, sessions toggle, theme,
-  notebook, new), home (session history pane + centered input + samples), reader
+  notebook, new), **login** (email → console code, with demo cards), home
+  (session history pane + centered input + samples), reader
   (the `#history` session pane, trail, reading sheet with `#readingBody` +
   `#readingSections` for dives, and the `#actions` rail containing `#sideList` for
   asides), the bottom
   composer, selection `#toolbar`, the lens overlay, and the notebook drawer.
 - `api.js` — low-level API client as a plain global (`window.QriouslyAPI`): base
-  URL resolution (`?api=`, same-origin on :8000, else `localhost:8000`), device
-  auth (`POST /auth/device`) with the token persisted in `localStorage`, REST
+  URL resolution (`?api=`, same-origin on :8000, else `localhost:8000`), session
+  login (`POST /auth/login/start` + `POST /auth/login`) and sign-out
+  (`POST /auth/logout`) with the token persisted
+  in `localStorage` (key unchanged, so an existing token survives), REST
   helpers (`me`/`balance`/`post`/`get`/`del`), a readiness probe, and the SSE
   reader (fetch + stream reader; parses `meta`/`token`/`done`/`usage`/`error`).
+  `ensureAuth()` no longer creates a session — it throws `login_required` so the
+  app can route guests to the login screen.
 - `adapter.js` — the data-source chooser (`window.QriouslyContent`). `init()`
-  picks **api** (auth + balance succeed) or **mock** (`?demo=1`, or the API is
-  unreachable) and reports the mode + balance. `startRoot(question, lens, hooks)`
+  picks **api** (token → `me` + balance), **mock** (`?demo=1`, or the API is
+  unreachable), or **guest** (no token) and reports the mode + balance. `loginStart`
+  / `login` proxy the auth calls. `startRoot(question, lens, hooks)`
   and `streamBranch(context, hooks)` present one streaming interface; hooks are
   `onToken`/`onMeta`/`onDone`/`onUsage`/`idempotencyKey`. Mock uses `content.js`;
   api does `POST /threads` / `POST /generate` then the SSE stream. Persistence
@@ -669,7 +675,48 @@ The visual system is **reading-first**: the prose and the branching structure ca
   `.toolbar-results`/`.toolbar-result`, `.toolbar-ask` (`.toolbar.note-only`
   hides all but Save note), `.actions`, `.composer*`,
   `.history`/`.history-item`/`.history-del` (session pane), `.confirm-card`
-  (destructive-action dialog), `.note-compose` (free-form note field),
-  `.credit-meter.pending` (in-flight reserve), `.bloom-pulse`.
-  The ambient/mote layers and `--energy` were removed in v6.
-- Demo: `?demo=1` seeds a session in `script.js`.
+   (destructive-action dialog), `.note-compose` (free-form note field),
+   `.credit-meter.pending` (in-flight reserve), `.bloom-pulse`,
+   `.login`/`.login-card`/`.login-step`/`.demo-card` (login gate).
+   The ambient/mote layers and `--energy` were removed in v6.
+- Demo: `?demo=1` seeds a session in `script.js`; `?demo=1&q=<question>` opens
+  that question in the mock (used by the login demo cards).
+
+---
+
+## 21. Decision log — login gate (v27)
+
+- **v27 (login-gated generation):** metered tokens are no longer given to
+  anonymous sessions. `DeviceSession` → `Session` (same table, renamed; existing
+  sessions preserved), backend auth is login-first (`POST /auth/login/start` →
+  `POST /auth/login`), and generation/thread/note endpoints require a registered
+  user (`IsRegisteredUser`; anonymous → `403 login_required`).
+  - **Guest landing:** with no token the app boots into **guest** mode — the
+    **login screen** replaces the hero, headed **"Welcome to Qriously"** (the
+    "What made you *Qrious* today?" hero stays for the authenticated Home).
+    **"Explore some example Qriosities"** cards come first and open the offline
+    mock (`?demo=1&q=…`) so a visitor can explore pre-built sessions. Below them
+    a single **Continue with email** button (framed as "the full experience")
+    reveals the email field, then a one-time code. `?demo=1` and the offline
+    fallback are unchanged. An existing **anonymous** session (token present,
+    `is_anonymous_device: true`) is also routed to the login gate — boot reports
+    `claim_required` and keeps the token so the session can be claimed, rather
+    than showing Home.
+  - **Sign out:** a top-bar **Sign out** button (`POST /auth/logout`) revokes the
+    server session, clears the local token and reloads into the guest login
+    screen. Hidden while unauthenticated.
+  - **Branding:** the stray `Lumen` tag in the top bar (a leftover from the
+    retired v6 visual direction) was removed.
+  - **Claim-in-place:** if the browser already holds an anonymous session token,
+    the first login **claims it in place** — `email` set,
+    `is_anonymous_device` false — so threads, the notebook and the wallet stay
+    attached (same user id). A fresh session token is issued and the old one
+    revoked. An email that already has an account just gets a new session (no
+    merge). There is no special-casing by identity.
+  - **Token continuity:** the `localStorage` key is unchanged, so an existing
+    token is read on boot; `ensureAuth()` no longer auto-creates a session, and
+    the app routes to login instead.
+  - **Providers:** `accounts/providers.py` is framework-free; `dev` prints a
+    one-time code to the server console; `google` is a stub behind the same
+    interface, selected by `AUTH_PROVIDER` in `core/constants.py`.
+

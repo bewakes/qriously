@@ -1,6 +1,6 @@
 import pytest
 
-from accounts.models import DeviceSession
+from accounts.models import Session
 from accounts.policies import hash_token
 from accounts.services import create_anonymous_session
 
@@ -21,7 +21,7 @@ def test_create_anonymous_session():
 @pytest.mark.django_db
 def test_revoke():
     _user, session, raw_token = create_anonymous_session()
-    assert DeviceSession.objects.filter(token_hash=hash_token(raw_token)).exists()
+    assert Session.objects.filter(token_hash=hash_token(raw_token)).exists()
 
     session.revoke()
 

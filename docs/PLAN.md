@@ -36,7 +36,8 @@ framework-free `policies.py`/`lenses/`/`safety/`, services own transactions, and
 - [x] `core/constants.py` (single source for model id, `BASE_COST`,
       `DEPTH_MULTIPLIER`, `CACHE_HIT_RATIO`, `SIGNUP_GRANT`, `SCREENING_POLICY`,
       `PROMPT_VERSION`) — no literals in flow code.
-- [x] Custom `User`, `DeviceSession`; anonymous device auth + `POST /auth/device`.
+- [x] Custom `User`, `Session`; login-gated auth (`POST /auth/login`) with
+      dev console code and claim-in-place of an anonymous session.
 - [x] `Wallet` + append-only `CreditEntry` + `signup_grant` on creation (per
       account, no decay). `Credits/policies.price()` handles the fractional
       cache-hit charge.
@@ -121,17 +122,17 @@ cache and is charged only the small fraction (with `vendor_cost_micros` null). �
 
 ## Phase 4 — Frontend wiring & component extraction
 
-**Status: in progress.** The app is wired to the API end-to-end (device auth,
+**Status: in progress.** The app is wired to the API end-to-end (login auth,
 streamed generation, credit meter, inline errors/retry, offline fallback, plus
 session restore and server-backed notes) as two plain globals — `app/api.js` and
 `app/adapter.js` — chosen over an `src/` ES-module tree to keep the no-build,
 offline, `file://`-safe ethos (spec v12). The full component extraction and token
 split are deferred.
 
-- [x] `api.js` (REST client, device auth + token persistence, SSE reader) and
+- [x] `api.js` (REST client, login auth + token persistence, SSE reader) and
       `adapter.js` (API-vs-mock selection, streaming interface); `content.js`
       stays the mock behind its original signatures.
-- [x] Device auth bootstrap; persist token; `GET /me`/balance on boot.
+- [x] Login bootstrap; persist token; `GET /me`/balance on boot.
 - [x] Replace `generateNode`/`generateRoot`/`generateAsk` with adapter calls;
       consume SSE into the reading path (sections are now shell-first +
       `startBodyStream()`).
@@ -155,9 +156,37 @@ split are deferred.
       re-charges. `?demo=1`/offline keeps the in-memory notebook. See spec v15.
 
 **Done when:** the app runs end-to-end against the backend with the same feel;
-`?demo=1` still works with no server. ✅ verified live (device auth → streamed
+`?demo=1` still works with no server. ✅ verified live (login → streamed
 generation → fractional cache-hit charges reflected in the meter; refresh
 restores the session and its notes with no new charge).
+
+---
+
+## Phase 4.5 — Login-gated auth
+
+**Status: complete.** Metered generation requires an account; guests browse the
+offline samples. Provider interface in `accounts/providers.py` (`dev` console
+code now; `google` stub), decisions wired in `accounts/services.py`.
+
+- [x] `Session` replaces `DeviceSession` (`RenameModel` migration; local data
+      preserved); `SessionTokenAuthentication` replaces device auth.
+- [x] `POST /auth/login/start` (prints a dev code) and `POST /auth/login`
+      (verify → resolve account → issue session). Anonymous session is
+      **claimed in place** on first login, keeping threads/notes/wallet; the old
+      session is revoked and a fresh token issued. No double signup grant.
+- [x] `IsRegisteredUser` gates threads/nodes/notes/generate; anonymous sessions
+      get `403 login_required`. SSE view rejects anonymous too.
+- [x] Frontend: guests land on a login screen with demo cards that open the
+      mock (`?demo=1&q=…`); `api.js` no longer auto-creates a session; login
+      persists the token.
+- [x] `manage.py claim_session --email … [--from <id>|--all-anonymous]` —
+      offline handoff for history spread across several anonymous sessions
+      (reassigns threads; notes follow).
+
+**Done when:** a first-time visitor must log in to generate, an existing local
+anonymous session is preserved under its email, and `?demo=1` still works with
+no server. ✅ verified (claim-in-place keeps user id; `POST /threads` 403 anon /
+201 registered).
 
 ---
 
@@ -200,12 +229,14 @@ restores the session and its notes with no new charge).
 
 ## Acceptance criterion for the MVP (end-to-end)
 
-A first-time visitor can, without an account: ask a question, calibrate a lens,
-read a streamed DeepSeek (`deepseek-flash`) answer, dive/ELI5/define/example/
-save, ask a new question below, and see a credit balance that goes down per
-generation and down by only a small **fraction** on a repeated/similar request —
-all persisted so a reload restores the thread, with every charge traceable to a
-`request_id` and the mock still available offline.
+A first-time visitor lands on a login screen and can sign in with a
+console-printed code (an existing anonymous session is claimed in place). Once
+logged in they can: ask a question, calibrate a lens, read a streamed DeepSeek
+(`deepseek-flash`) answer, dive/ELI5/define/example/save, ask a new question
+below, and see a credit balance that goes down per generation and down by only a
+small **fraction** on a repeated/similar request — all persisted so a reload
+restores the thread, with every charge traceable to a `request_id` and the mock
+still available offline (and to guests via the sample cards).
 
 ---
 
@@ -216,8 +247,9 @@ all persisted so a reload restores the thread, with every charge traceable to a
    §5); initial values are placeholders, changed without touching flow code. ✅
 3. **Model:** default `deepseek-flash` (configurable); `deepseek-reasoner` for
    `depth=deep` remains an option, not default. ✅
-4. **Anonymous credit reset:** gift per account, **no decay** for now (single-user
-   testing); decay/anti-farming deferred. ✅
+4. **Credit reset:** gift per account, **no decay** for now (single-user
+   testing); decay/anti-farming deferred. Generation is login-gated, so anonymous
+   sessions cannot farm credits. ✅
 5. **Cache hits are charged** a configurable fraction — never free. ✅
 6. **Screening** exists in the pipeline from day one (allow-all MVP). ✅
 7. **Per-request metering** (`RequestLog`) + **vendor LLM cost** tracked

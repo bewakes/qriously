@@ -42,7 +42,7 @@ start_api() {
 start_app() {
   local pids; pids="$(pids_on "$APP_PORT")"
   if [ -n "$pids" ]; then echo "app :$APP_PORT already running (pid $pids)"; return 0; fi
-  ( cd "$ROOT" && nohup python3 -m http.server "$APP_PORT" </dev/null >"$APP_LOG" 2>&1 & )
+  ( cd "$ROOT" && nohup python3 "$ROOT/scripts/serve.py" "$APP_PORT" "$ROOT" </dev/null >"$APP_LOG" 2>&1 & )
   echo "app :$APP_PORT started -> $APP_LOG"
 }
 
