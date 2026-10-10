@@ -193,7 +193,7 @@ const LIBRARY = {
 const KIND_LABELS = {
   root: "Answer",
   dive: "Dive in",
-  eli5: "ELI5",
+  eli5: "Explain",
   example: "Examples",
   define: "Define",
   ask: "Ask",

@@ -218,6 +218,21 @@
     });
   }
 
+  /* Delete a session (api only). Resolves false offline, when unauthenticated,
+     or when the request fails, so the caller can keep the row. */
+  function deleteThread(threadId) {
+    return init().then(function () {
+      if (mode !== "api" || !threadId) return false;
+      return API.del("/threads/" + encodeURIComponent(threadId))
+        .then(function () {
+          return true;
+        })
+        .catch(function () {
+          return false;
+        });
+    });
+  }
+
   window.QriouslyContent = {
     init: init,
     startRoot: startRoot,
@@ -226,6 +241,7 @@
     restoreThread: restoreThread,
     saveNote: saveNote,
     deleteNote: deleteNote,
+    deleteThread: deleteThread,
     getMode: function () {
       return mode;
     },

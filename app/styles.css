@@ -578,6 +578,49 @@ body.history-collapsed .history {
   color: var(--ink-faint);
 }
 
+.history-row {
+  position: relative;
+}
+
+.history-row .history-item {
+  padding-right: 30px;
+}
+
+.history-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.18s var(--ease), color 0.18s var(--ease), background 0.18s var(--ease);
+}
+
+.history-row:hover .history-del,
+.history-del:focus-visible {
+  opacity: 1;
+}
+
+.history-del:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--k-note) 22%, transparent);
+}
+
+@media (hover: none) {
+  .history-del {
+    opacity: 1;
+  }
+}
+
 .history-empty {
   margin: 0;
   padding: 22px 18px;
@@ -1312,6 +1355,14 @@ body.history-collapsed .composer-form {
   color: var(--k-note);
 }
 
+.toolbar.note-only .toolbar-actions button:not([data-act="note"]) {
+  display: none;
+}
+
+.toolbar.note-only .toolbar-ask {
+  display: none;
+}
+
 .toolbar-ask {
   display: flex;
   gap: 6px;
@@ -1473,6 +1524,67 @@ body.history-collapsed .composer-form {
 }
 
 .lens-start:hover {
+  filter: brightness(1.08);
+}
+
+.confirm-card {
+  width: min(420px, 100%);
+  padding: 24px;
+  border-radius: 20px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-2);
+  box-shadow: var(--shadow);
+  animation: unfold 0.35s var(--unfold) both;
+}
+
+.confirm-title {
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.confirm-message {
+  margin: 0 0 20px;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-actions button {
+  border-radius: 11px;
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.18s var(--ease), border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.confirm-cancel {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+}
+
+.confirm-cancel:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.confirm-delete {
+  border: none;
+  background: var(--k-note);
+  color: var(--accent-ink);
+}
+
+.confirm-delete:hover {
   filter: brightness(1.08);
 }
 

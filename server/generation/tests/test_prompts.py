@@ -2,6 +2,7 @@ from core.constants import DEFAULT_LENS
 from generation.prompts import (
     ANCHOR_RULE,
     ELI5_LENGTH_RULE,
+    FORMAT_RULE,
     GROUNDING_RULE,
     META_RULE,
     REFERENCE_RULE,
@@ -24,6 +25,11 @@ def test_system_prompt_includes_anchor_and_trust_rules():
     prompt = build_system_prompt(LENS, "dive")
     assert ANCHOR_RULE in prompt
     assert TRUST_RULE in prompt
+
+
+def test_system_prompt_asks_for_readable_formatting():
+    for kind in ("root", "followup", "dive", "ask"):
+        assert FORMAT_RULE in build_system_prompt(LENS, kind), kind
 
 
 def test_each_lens_dimension_changes_the_prompt():
