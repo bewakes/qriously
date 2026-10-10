@@ -246,11 +246,38 @@ a {
 .home {
   position: relative;
   z-index: 2;
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: clamp(56px, 13vh, 140px) clamp(16px, 4vw, 40px) 170px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 44px);
+  align-items: start;
+  animation: rise 0.8s var(--unfold) both;
+}
+
+.home.has-history {
+  grid-template-columns: minmax(220px, 272px) minmax(0, 1fr);
+}
+
+body.history-collapsed .home.has-history {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.home-main {
   max-width: 720px;
   margin: 0 auto;
-  padding: clamp(70px, 17vh, 170px) 24px 170px;
   text-align: center;
-  animation: rise 0.8s var(--unfold) both;
+}
+
+.home .home-history {
+  display: none;
+  top: 84px;
+  max-height: calc(100vh - 108px);
+}
+
+body:not(.history-collapsed) .home.has-history .home-history {
+  display: flex;
 }
 
 .eyebrow {
@@ -762,6 +789,7 @@ body.history-collapsed .history {
 }
 
 .side-card.kind-dive { --k: var(--k-dive); }
+.side-card.kind-ask { --k: var(--k-ask); }
 .side-card.kind-eli5 { --k: var(--k-eli5); }
 .side-card.kind-example { --k: var(--k-example); }
 .side-card.kind-define { --k: var(--k-define); }
@@ -1028,6 +1056,36 @@ body.history-collapsed .composer-form {
 
 .as-anchor:hover {
   color: var(--k);
+}
+
+.side-card.kind-ask .as-anchor {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: visible;
+}
+
+.side-card.kind-ask .as-head {
+  align-items: flex-start;
+}
+
+.side-card.kind-ask .as-ref {
+  max-width: 100%;
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.side-card.kind-ask .as-q {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .as-source {
@@ -1604,6 +1662,11 @@ body.history-collapsed .composer-form {
 }
 
 @media (max-width: 1000px) {
+  .home.has-history,
+  body.history-collapsed .home.has-history {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .reader-grid,
   .reader-grid.with-history {
     grid-template-columns: minmax(0, 1fr);
@@ -1613,7 +1676,8 @@ body.history-collapsed .composer-form {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .history {
+  .history,
+  .home .home-history {
     position: static;
     max-height: 300px;
     margin-bottom: 8px;

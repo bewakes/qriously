@@ -1,6 +1,6 @@
 # Qriously — Immersive Learning App: Interaction Spec
 
-**Status:** Living spec · prototype implemented (`app/index.html`); current interaction is **model v16** (see §20 Decision log). Where this doc and the code differ, **the code is the source of truth** — update the doc in the same change.
+**Status:** Living spec · prototype implemented (`app/index.html`); current interaction is **model v22** (see §20 Decision log). Where this doc and the code differ, **the code is the source of truth** — update the doc in the same change.
 **Surface:** `qriously/app/` (the landing designs are untouched)
 **Scope of this doc:** product concept, interaction model, content model, and MVP plan.
 
@@ -44,7 +44,7 @@ Ask  →  Calibrate  →  Read  →  Branch  →  Nest  →  Save  →  (Compose
 |---|---|
 | Home | The single input. One field, one question. |
 | Calibration lens | One-tap personalization; skippable, editable anytime. |
-| Session history | Collapsible left pane listing past sessions (server-backed); click to restore one. |
+| Session history | Collapsible left pane listing past sessions (server-backed); shown on Home and in the reader; click to restore one. |
 | Reader | Reading column + branch list + trail. The heart of the app. |
 | Composer | A persistent bottom ask box; asking here **appends a new question section** below the current reading (it does not replace the session). |
 | Question section | A new question (from the composer) rendered as a section below the current reading, with its own answer and nested dives. |
@@ -62,9 +62,9 @@ HOME
               └─[start reading]─► READER
                     ├─[select span]─► SELECTION TOOLBAR
                     │                    ├─ Dive in ──► DIVE SECTION (inline below)
-                    │                    ├─ ELI5     ┐
-                    │                    ├─ Examples ┼─► SIDE CARD (Wider angles rail)
-                    │                    │           ┘   ├─[select span]─► dive / card…
+                    │                    ├─ ELI5 / Examples / Define ┐
+                    │                    ├─ Ask…                     ┼─► SIDE CARD (Wider angles rail)
+                    │                    │                          ┘   ├─[select span]─► dive / card…
                     │                    └─ Save ──► NOTEBOOK
                     ├─[collapse]  fold subtree
                     ├─[trail]     jump to any ancestor / the root
@@ -113,10 +113,10 @@ A single card shown immediately after the query. Every field has a sensible defa
 
 - **Reading sheet:** measure ~720px, generous line-height; holds the root answer plus inline **dive sections**. A quiet meta line (sources · verified) sits directly under the title, above the body.
 - **Dive sections:** only **Dive in** renders as a collapsible section **below the content**, titled with the selected phrase. Dives **nest** under dives — select inside a dive to go deeper. This is the only content that grows the sheet.
-- **Wider angles (side rail):** non-dive actions (**ELI5 / Examples / Define**) render as collapsible **cards in the right rail**, never below the text. They are always one step off the main line of reading.
+- **Wider angles (side rail):** non-dive actions (**Ask… / ELI5 / Examples / Define**) render as collapsible **cards in the right rail**, never below the text. They are always one step off the main line of reading.
 - **Trail:** horizontal breadcrumb of the active path; click any crumb to jump.
 - **Composer:** persistent bottom ask box with read-time/action counters. Submitting **adds a new question section** below the current content (streamed, with its own dives nested under it and its asides in the side rail), rather than wiping the reader. The session can therefore hold several questions stacked down the sheet; the trail's base crumb follows the active question.
-- **Session history (left rail):** a collapsible pane listing the device user's past sessions, newest activity first (`GET /threads`, cursor-paginated). The active session is marked; clicking another restores it via the same no-generation path as auto-resume. Collapsible from its own header (`«`) and the top-bar `☰` toggle (preference remembered); the `＋` starts a **new session** (returns Home, keeping the old one in history). Offline/model mode lists nothing.
+- **Session history (left rail):** a collapsible pane listing the device user's past sessions, newest activity first (`GET /threads`, cursor-paginated). It appears on **Home** (collapsed by default) as well as in the reader, whenever the device has sessions. The active session is marked; clicking another restores it via the same no-generation path as auto-resume. Collapsible from its own header (`«`) and the top-bar `☰` toggle (preference remembered); the reader pane's `＋` starts a **new session** (returns Home, keeping the old one in history). Offline/model mode lists nothing.
 
 ### 7.2 Reading behavior
 - Content **streams** token-by-token; a skeleton holds layout to avoid jumps.
@@ -137,7 +137,7 @@ Appears anchored just above the selection (or as a bottom bar on mobile). Shows 
 
 When the phrase already has results, the toolbar is a **results menu**: a scannable list (`↓ Dive · "…"`, `→ ELI5 · "…"`) above the action buttons. Click a row to scroll to that result and expand it; the buttons below still create another. This means one click on an actioned phrase both reveals what exists and offers the way to go further. If the phrase has no results yet, only the action buttons show. Clicking the inline **marker** jumps straight to the result when there is exactly one, and opens this menu when there are several.
 
-Below the action buttons sits a small **Ask** field ("Ask about this…"). It covers the cases the presets can't: it takes a free-text question scoped to the selected phrase and produces **one** inline answer node (kind `ask`, titled with your question), anchored to the phrase so it also appears in the results menu and the marker. It is deliberately single-shot — submitting creates one section and closes the toolbar; there is no chat/thread state. Further depth is reached the normal way (select inside the answer), and the bottom composer remains the route for a fresh, top-level line of questioning.
+Below the action buttons sits a small **Ask** field ("Ask about this…"). It covers the cases the presets can't: it takes a free-text question scoped to the selected phrase and produces **one** answer **card** in the Wider angles rail (kind `ask`, titled with your question), anchored to the phrase so it also appears in the results menu and the marker. It is deliberately single-shot — submitting creates one section and closes the toolbar; there is no chat/thread state. Further depth is reached the normal way (select inside the answer), and the bottom composer remains the route for a fresh, top-level line of questioning.
 
 | Action | Kind | What it produces | MVP |
 |---|---|---|---|
@@ -161,8 +161,8 @@ Below the action buttons sits a small **Ask** field ("Ask about this…"). It co
 
 An **action** is what the user does to a span (Dive in, ELI5, Examples, Define). Actions are split by kind, deterministically:
 
-- **Dive in** and **Ask…** → an inline section below the content, recursively nested under dives.
-- **ELI5 / Examples / Define** → a **side card** in the "Wider angles" rail.
+- **Dive in** → an inline section below the content, recursively nested under dives.
+- **Ask… / ELI5 / Examples / Define** → a **side card** in the "Wider angles" rail.
 
 ### 9.1 Dive section anatomy
 
@@ -185,12 +185,13 @@ An **action** is what the user does to a span (Dive in, ELI5, Examples, Define).
 
 ### 9.3 Wider angles (side rail)
 - Lists every non-dive action as a collapsible card, newest last; the card for the active action is highlighted.
+- An **`ask` card** shows both sides of the exchange in its header: the selected phrase (muted, single line, truncated) above the user's question, so the source is visible without using `↩`. Other cards title themselves with the selected phrase.
 - Clicking a card's **title** collapses/expands it (like the toggle); `↩` scrolls to and highlights the phrase it came from in the reading sheet; `✕` removes it (with any descendants).
 - Side cards are fully selectable, so they can spawn further dives (which go below) or more asides (which go to the rail).
 - Ancestry is spatial: a dive's indent plus the trail breadcrumb.
 
 ### 9.4 Action kinds (visual language)
-The inline marker on an actioned word is a **direction**, not a kind: `↓` means content below (dive or ask), `→` means an aside on the side, `★` a saved note (an anchor with more than one kind shows the combined arrows). Each kind still has its own colour and label — `dive`, `ask`, `eli5`, `example`, `define`, `note` (plus `visual`, `relevance` later) — used on the section / side-card header, so a word traces to its result. Dive and ask sections are full weight; side cards are lighter. Colour is never the only signal.
+The inline marker on an actioned word is a **direction**, not a kind: `↓` means content below (a dive), `→` means an aside on the side, `★` a saved note (an anchor with more than one kind shows the combined arrows). Each kind still has its own colour and label — `dive`, `ask`, `eli5`, `example`, `define`, `note` (plus `visual`, `relevance` later) — used on the section / side-card header, so a word traces to its result. Dive sections are full weight; side cards (including answers to the free-text Ask) are lighter. Colour is never the only signal.
 
 > Pushback logged: inline dives reintroduce reflow/deep-indentation risk (the reason the margin rail was proposed originally). Mitigations: only dives grow the sheet (asides are off to the side), per-section collapse, capped indentation, and the trail. If dives still prove too noisy at depth, the fallback is the single floating window (see the v2/v4 decision-log entries).
 
@@ -219,7 +220,7 @@ The trail is the ordered ancestry of the current focus: `Question › A › B �
 |---|---|---|
 | `id` | string | Stable id |
 | `parentId` | string \| null | `null` for the root answer |
-| `kind` | enum | `root` \| `dive` \| `eli5` \| `example` \| `note` \| `define` \| `visual` \| `relevance` |
+| `kind` | enum | `root` \| `dive` \| `ask` \| `eli5` \| `example` \| `note` \| `define` \| `visual` \| `relevance` |
 | `anchor` | `{ text, spanId }` | The selected span this node answers |
 | `title` | string | Card heading |
 | `body` | markdown | Streamed; may contain new selectable spans |
@@ -449,13 +450,66 @@ The visual system is **reading-first**: the prose and the branching structure ca
   line cycles the landing designs' wait copy — *"Considering… → Cross-referencing…
   → Composing the reply…"* — then settles to the read time (static under
   reduced-motion; stopped on restore/new-session/error).
+- **v18:** the selection-toolbar free-text **Ask…** result moves to the **side
+  rail**. The rule is now simply: **Dive in is the only action that grows the
+  sheet**; every other action on a span (**Ask… / ELI5 / Examples / Define**)
+  renders as a collapsible card beside it. Rationale: an ask is anchored to a
+  selected phrase exactly like an aside — another angle on that phrase, not a
+  deeper step on the main line — so it belongs with them, and a single growing
+  column keeps the reader from drifting back toward a chat log. Effects: the
+  ask's direction marker changes `↓` → `→`, it joins the rail's count and the
+  "Wider angles" empty-state copy, and it gets the `--k-ask` side-card tint.
+  Single-shot semantics, the results-menu entry and the `↩` backlink are
+  unchanged. (First instinct was to also move composer *questions* to the side
+  and show one root at a time; that larger multi-root model is **not** built —
+  composer questions still append below — and remains an open option.)
+- **v19 (URL-driven sessions):** the active session now lives in the address bar
+  (`?session=<thread id>`), so every session has its own URL: shareable,
+  bookmarkable, and restored by reload. `setSessionUrl()` writes it with the
+  History API (`pushState` when you open/start a session, `replaceState` for
+  transient states) and `sessionParam()` reads it; `popstate` → `applyRoute()`
+  drives back/forward (no session param = Home). This **replaces** the
+  `localStorage` thread pointer (v15): boot restores `?session=` from the URL,
+  falling back to Home (with a toast) when the thread is gone. Starting a new
+  session, opening one from the history pane, and the brand mark all update the
+  URL; `?demo=1` and `?api=` are preserved and demo mode never rewrites the bar.
+  Static hosting has no path rewrites, so the id rides as a query param, not a
+  pretty `/s/<id>` path.
+- **v20 (home session panel):** the **session history pane now renders on Home
+  too**, not just in the reader, so a returning device sees its past sessions
+  before asking anything. The pane markup was made reusable (class-based hooks,
+  a copy in `#home` and one in the reader grid) and `renderHistory()` paints
+  every `.history-list`/`.history-empty`/`.history-more`; panel controls are
+  handled by one delegated click listener. Home becomes a two-column grid
+  (history · hero) once sessions exist — `#home.has-history` — collapsing to one
+  column under 1000px or when the pane is collapsed; the panel is hidden while
+  the device has no sessions (so offline/mock still shows a plain hero). The
+  top-bar `☰` toggle and the collapse preference are shared between both panes.
+- **v21:** two refinements. (1) The **Home** session pane is **collapsed by
+  default** — Home shows the bare hero until history is opened (`☰` or `«`),
+  while the **reader** still defaults open. `applyHistoryOpen()` picks a
+  context default (Home → collapsed, reader → open) only when the user has never
+  toggled; an explicit choice is remembered as before. (2) An **`ask` side card
+  now shows what the question was asked about**: its header prints the selected
+  phrase (muted, single line, truncated) above your question, so the `↩`
+  backlink is no longer the only route to the source (`askHeading()`).
+- **v22:** the selection threshold is now a **character cap (`MAX_SELECTION`
+  = 800)** instead of a rendered-**line** cap. The old `> 4 client rects` rule
+  was width-dependent: a couple of sentences wrapped to more than four lines in
+  the **narrow side rail**, so passages selected inside an `ask` (or any side)
+  card's answer were silently refused and could not be saved to the notebook.
+  The character count is width-independent, so a normal passage can be selected
+  — and saved with **Save note** — from anywhere, including the rail; the
+  `container.contains(range.endContainer)` guard still keeps a selection to a
+  single node.
 
 ## 21. Implementation map
 
 - `index.html` — app shell: top bar (lens chip, sessions toggle, theme,
-  notebook, new), home (centered input + samples), reader (the `#history` session
-  pane, trail, reading sheet with `#readingBody` + `#readingSections` for dives,
-  and the `#actions` rail containing `#sideList` for asides), the bottom
+  notebook, new), home (session history pane + centered input + samples), reader
+  (the `#history` session pane, trail, reading sheet with `#readingBody` +
+  `#readingSections` for dives, and the `#actions` rail containing `#sideList` for
+  asides), the bottom
   composer, selection `#toolbar`, the lens overlay, and the notebook drawer.
 - `api.js` — low-level API client as a plain global (`window.QriouslyAPI`): base
   URL resolution (`?api=`, same-origin on :8000, else `localhost:8000`), device
@@ -476,11 +530,13 @@ The visual system is **reading-first**: the prose and the branching structure ca
   activeId, counter, toolbarContext, marks, notes, threadId, credits, threads,
   historyCursor, historyDone, ... }`.
   Entry: `startReader()` (first question; creates the thread via `startRoot`) and
-  `addQuestion()` (later questions from the composer). Sessions persist: the
-  thread id is kept in `localStorage` and `restoreSession(snapshot)` rebuilds a
-  thread from `GET /threads/{id}` with no generation (used on boot). Sections are
-  **shell-first**: `createSection()` (routes dives/asks to `diveHost(parent)` and
-  asides to `#sideList`) / `createAsk()` build the DOM synchronously, then
+  `addQuestion()` (later questions from the composer). The session is **URL-driven**:
+  the active thread id lives in the address bar (`?session=<id>`) via
+  `setSessionUrl()`/`sessionParam()`, and `restoreSession(snapshot)` rebuilds a
+  thread from `GET /threads/{id}` with no generation (used on boot and on
+  back/forward via `applyRoute()`). Sections are
+  **shell-first**: `createSection()` (routes only dives to `diveHost(parent)`;
+  asides and asks go to `#sideList`) / `createAsk()` build the DOM synchronously, then
   `fillContent()` streams tokens into `startBodyStream()` and settles
   title/read-time on `done`; both `createSection`/`addQuestion` take a `preset`
   for the restore path (render a `done` body, skip streaming).
@@ -489,10 +545,13 @@ The visual system is **reading-first**: the prose and the branching structure ca
   `descendantIds()`). Anchors/marks in `decorateAnchor()`; toolbar + results menu
   in `showToolbar()` / `renderToolbarResults()` / `performAction()`; trail in
   `renderTrail()` / `rootOf()`; `bloomAt()` is the only remaining
-  experience-layer effect. Session history: `loadHistory()` / `renderHistory()`
-  (cursor-paginated, `state.threads`/`historyCursor`/`historyDone`) /
-  `openThread(id)` / `newSession()` / `setHistoryOpen()` (via `relTime()`);
-  the brand (`#brandHome`) returns Home. Waiting: `startWaitNote()` /
+  experience-layer effect. URL routing: `sessionParam()` / `setSessionUrl()` /
+  `applyRoute()` (popstate → back/forward). Session history: `loadHistory()` /
+  `renderHistory()` (paints every `.history-list` and toggles
+  `#home.has-history`; cursor-paginated, `state.threads`/`historyCursor`/
+  `historyDone`) / `openThread(id)` / `newSession()` / `resetToHome()` /
+  `setHistoryOpen()` (via `relTime()`); the brand (`#brandHome`) returns Home.
+  Waiting: `startWaitNote()` /
   `stopWaitNote()` cycle `WAIT_MESSAGES` in `#readingMeta`.
   Credits: `setCredits()` / `onGenerationMeta()` /
   `onGenerationUsage()` (optimistic decrement, reconcile on `usage`, reuse shown);
@@ -506,8 +565,8 @@ The visual system is **reading-first**: the prose and the branching structure ca
   anchors). `LIBRARY` maps `normalizeKey(phrase)` → `{ dive, eli5, example,
   define }` bodies; `synthesize()` is the fallback.
 - `styles.css` — tokens in `:root` / `html[data-theme="dark|light"]`. Key
-  selectors: `.anchor`/`.anchor-icon`, `.action-section`/`.as-*` (dives/asks),
-  `.question-section` (questions), `.side-list`/`.side-card` (asides),
+  selectors: `.anchor`/`.anchor-icon`, `.action-section`/`.as-*` (dives),
+  `.question-section` (questions), `.side-list`/`.side-card` (asides/asks),
   `.toolbar-results`/`.toolbar-result`, `.toolbar-ask`, `.actions`, `.composer*`,
   `.history`/`.history-item` (session pane), `.bloom-pulse`.
   The ambient/mote layers and `--energy` were removed in v6.
