@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from core.constants import normalize_lens
 
 SPAN_KINDS = frozenset({"dive", "eli5", "define", "example"})
+FOLLOWUP_KINDS = frozenset({"followup"})
 
 ANCHOR_RULE = (
     "Wrap between 3 and 6 short, self-contained concepts in the answer with "
@@ -100,6 +101,7 @@ GOAL_GUIDANCE = {
 
 KIND_GUIDANCE = {
     "root": "Answer the reader's opening question.",
+    "followup": "Answer the reader's follow-up question about this session.",
     "dive": (
         "Explain the highlighted phrase in its own right, in context — go deeper "
         "on the phrase, not on the surrounding answer."
@@ -108,6 +110,35 @@ KIND_GUIDANCE = {
     "example": "Illustrate with a short list of concrete examples.",
     "define": "Give a short, precise definition with no preamble.",
     "ask": "Answer the reader's follow-up question about the passage.",
+}
+
+GROUNDING_RULE = (
+    "This is a follow-up in an ongoing session. Use the session context below to "
+    "interpret the question: if it refers to something the reader has already "
+    "explored, answer about that. If the question is a genuinely new topic, "
+    "answer it fresh — do not force a connection that is not there."
+)
+
+META_OPEN = "<<<QRIOUSLY"
+META_CLOSE = ">>>"
+META_RULE = (
+    "After the answer, append exactly one metadata block on its own lines:\n"
+    f"{META_OPEN}\n"
+    "gist: one sentence summarising your answer\n"
+    "summary: one or two sentences summarising the whole session so far, "
+    "including this answer\n"
+    f"{META_CLOSE}\n"
+    "Do not refer to this block in the answer itself."
+)
+
+ACTION_VERBS = {
+    "root": "opened with the question",
+    "followup": "asked",
+    "dive": "dived into",
+    "eli5": "asked for a simpler version of",
+    "example": "asked for examples of",
+    "define": "asked to define",
+    "ask": "asked",
 }
 
 FRAME_PHRASES = {
@@ -139,6 +170,8 @@ def build_system_prompt(lens: Mapping[str, str] | None, kind: str) -> str:
     ]
     if kind in SPAN_KINDS:
         sections += [SCOPE_RULE, REFERENCE_RULE]
+    if kind in FOLLOWUP_KINDS:
+        sections += [GROUNDING_RULE]
     sections += [
         FAMILIARITY_GUIDANCE[normalized["familiarity"]],
         length_rule,
@@ -147,6 +180,8 @@ def build_system_prompt(lens: Mapping[str, str] | None, kind: str) -> str:
         anchor_rule,
         TRUST_RULE,
     ]
+    if kind in FOLLOWUP_KINDS:
+        sections.append(META_RULE)
     return "\n".join(sections)
 
 
@@ -169,10 +204,17 @@ def build_user_prompt(
     context: str | None = None,
     span_text: str | None = None,
     frame: str | None = None,
+    trajectory: str | None = None,
 ) -> str:
     lines = []
     if frame:
         lines.append(f"This selection comes from {frame}.")
+    if kind == "followup":
+        lines.append("Session so far:")
+        lines.append((trajectory or "").strip() or "(no earlier activity)")
+        lines.append(f"Follow-up question: {text}")
+        lines.append("Answer the follow-up question in the context of this session.")
+        return "\n".join(lines)
     if kind == "ask" and span_text:
         lines.append(f"Passage: {span_text}")
         lines.append(f"Question about the passage: {text}")
@@ -199,9 +241,15 @@ def build_messages(
     context: str | None = None,
     span_text: str | None = None,
     frame: str | None = None,
+    trajectory: str | None = None,
 ) -> list[dict[str, str]]:
     user = build_user_prompt(
-        text=text, kind=kind, context=context, span_text=span_text, frame=frame
+        text=text,
+        kind=kind,
+        context=context,
+        span_text=span_text,
+        frame=frame,
+        trajectory=trajectory,
     )
     return [
         {"role": "system", "content": build_system_prompt(lens, kind)},

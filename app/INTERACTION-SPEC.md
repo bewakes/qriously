@@ -519,7 +519,7 @@ The visual system is **reading-first**: the prose and the branching structure ca
   — and saved with **Save note** — from anywhere, including the rail; the
    `container.contains(range.endContainer)` guard still keeps a selection to a
    single node.
-- **v23 (proposed — follow-ups are thread children, grounded in a trajectory):** the bottom
+- **v23 (follow-ups are thread children, grounded in a trajectory):** the bottom
   **composer** no longer creates a new root. A question typed there is a
   **follow-up** (`kind = followup`) whose **parent is the thread's original
   root**; it still **renders as a top-level question section appended below**.

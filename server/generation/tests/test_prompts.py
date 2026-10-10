@@ -2,6 +2,8 @@ from core.constants import DEFAULT_LENS
 from generation.prompts import (
     ANCHOR_RULE,
     ELI5_LENGTH_RULE,
+    GROUNDING_RULE,
+    META_RULE,
     REFERENCE_RULE,
     SCOPE_RULE,
     SPAN_KINDS,
@@ -125,3 +127,34 @@ def test_frame_line_names_the_container_or_is_omitted():
 def test_ask_prompt_without_a_passage_falls_back_to_explain():
     messages = build_messages(text="What is this?", kind="ask", lens=LENS)
     assert messages[1]["content"] == "Explain: What is this?"
+
+
+def test_followup_system_prompt_grounds_and_asks_for_meta():
+    prompt = build_system_prompt(LENS, "followup")
+    assert GROUNDING_RULE in prompt
+    assert META_RULE in prompt
+    assert SCOPE_RULE not in prompt
+
+
+def test_followup_user_prompt_carries_the_trajectory():
+    messages = build_messages(
+        text="how is the target calculated?",
+        kind="followup",
+        lens=LENS,
+        trajectory=(
+            "Root question: Why do Ethereum fees swing so much?\n"
+            "Actions so far:\n- dived into \"base fee\""
+        ),
+    )
+    user = messages[1]["content"]
+    assert "Session so far:" in user
+    assert "Root question: Why do Ethereum fees swing so much?" in user
+    assert "dived into" in user
+    assert "Follow-up question: how is the target calculated?" in user
+
+
+def test_followup_user_prompt_without_trajectory_still_asks():
+    messages = build_messages(text="hi", kind="followup", lens=LENS)
+    user = messages[1]["content"]
+    assert "(no earlier activity)" in user
+    assert "Follow-up question: hi" in user

@@ -68,10 +68,16 @@ changed several times: margin rail → list+window → inline action sections �
     collapsible **cards** on the side. Selecting inside any card and choosing a
     kind routes by kind: only dives go below; asides and asks stay in the rail.
   - **Trail** — breadcrumb of the active path; the leading crumb is the base
-    question.
-  - **Composer** — a persistent bottom "ask" box (reader-only); submitting
-    **appends a new question section below** (does not replace the session),
-    using the current lens.
+    question of the active section (the thread root, or a follow-up, which reads
+    as its own base).
+  - **Composer** — a persistent bottom "ask" box (reader-only and **thread-scoped**
+    — there is no selection, so it never targets a section). Submitting appends a
+    **follow-up** section below (does not replace the session) using the current
+    lens. A follow-up is `kind = followup`, a **child of the thread's original
+    root** (never a new root) that **renders top-level**; it is grounded in the
+    **session trajectory** (root question + rolling `Thread.summary` + a
+    server-derived action log, capped at ~25 actions), and its answer is per-user
+    (never shared), unlike the opening root and span actions.
   - **Notebook** — saved spans + context (top bar).
 - **Anchors:** nothing is highlighted until acted on. Actioned spans get a
   *subtle* dotted underline + a tiny direction marker (`↓` below, `→` side,

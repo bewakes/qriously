@@ -25,7 +25,7 @@ from .services import job_descriptor, prepare_generation, stream_generation
 if TYPE_CHECKING:
     from accounts.models import User
 
-GENERATE_KINDS = ["root", "dive", "eli5", "example", "define", "ask"]
+GENERATE_KINDS = ["root", "followup", "dive", "eli5", "example", "define", "ask"]
 
 
 class GenerateSerializer(serializers.Serializer):
@@ -45,6 +45,15 @@ class GenerateSerializer(serializers.Serializer):
         if kind == "root":
             if not question:
                 raise serializers.ValidationError({"question": "required for root"})
+        elif kind == "followup":
+            if not (has_parent and question):
+                raise serializers.ValidationError(
+                    {
+                        "question": (
+                            "parent_node_id and question are required for followup"
+                        )
+                    }
+                )
         elif kind == "ask":
             if not (has_parent and span_text and question):
                 raise serializers.ValidationError(

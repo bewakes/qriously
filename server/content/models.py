@@ -6,6 +6,7 @@ from core.models import TimeStampedModel, UUIDModel
 
 class Kind(models.TextChoices):
     ROOT = "root"
+    FOLLOWUP = "followup"
     DIVE = "dive"
     ELI5 = "eli5"
     EXAMPLE = "example"
