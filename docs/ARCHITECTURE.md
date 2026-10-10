@@ -301,7 +301,7 @@ Principles:
   reconciles over optimistic UI (especially the credit meter).
 - **Theming** is CSS custom properties (already the pattern). `[data-theme]`
   carries dark/light; a separate `[data-skin]` attribute reserves the space for
-  the landing design directions (nocturne, daylight, atelier, …) as future
+  the landing design directions (daylight, playtime, atelier) as future
   product skins. Components never hard-code colors.
 - **`content/adapter.js`** keeps the mock generator behind the same
   `generateRoot` / `generateNode` / `generateAsk` interface, selected by

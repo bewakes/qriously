@@ -442,6 +442,13 @@ The visual system is **reading-first**: the prose and the branching structure ca
   angles — collapsing to two when hidden and stacking under 1000px. Offline/mock
   mode shows an empty pane (no local session store yet), and per-session question
   grouping, free-form session titles and delete-from-history remain open.
+- **v17:** two small changes. (1) The **brand mark returns Home** instead of
+  opening the old root design-directions chooser, which was removed along with
+  six unused landing designs (only Daylight, Playtime and Atelier remain, as
+  future theme candidates). (2) While a root answer generates, the reading meta
+  line cycles the landing designs' wait copy — *"Considering… → Cross-referencing…
+  → Composing the reply…"* — then settles to the read time (static under
+  reduced-motion; stopped on restore/new-session/error).
 
 ## 21. Implementation map
 
@@ -484,7 +491,9 @@ The visual system is **reading-first**: the prose and the branching structure ca
   `renderTrail()` / `rootOf()`; `bloomAt()` is the only remaining
   experience-layer effect. Session history: `loadHistory()` / `renderHistory()`
   (cursor-paginated, `state.threads`/`historyCursor`/`historyDone`) /
-  `openThread(id)` / `newSession()` / `setHistoryOpen()` (via `relTime()`).
+  `openThread(id)` / `newSession()` / `setHistoryOpen()` (via `relTime()`);
+  the brand (`#brandHome`) returns Home. Waiting: `startWaitNote()` /
+  `stopWaitNote()` cycle `WAIT_MESSAGES` in `#readingMeta`.
   Credits: `setCredits()` / `onGenerationMeta()` /
   `onGenerationUsage()` (optimistic decrement, reconcile on `usage`, reuse shown);
   failures render inline via `renderNodeError()` with a retry that reuses the

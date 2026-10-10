@@ -27,7 +27,7 @@ curiosity. By asking first and answering later, we:
 3. **Create a micro-commitment.** A typed question is an intent, and intent is
    the first step of learning.
 
-All nine directions below share this structure, copy, and interaction. Only the
+The three directions below share this structure, copy, and interaction. Only the
 visual mood changes, so they can be compared like for like.
 
 ## Shared structure
@@ -46,22 +46,7 @@ Shared behaviour:
 
 ---
 
-## Direction 1 — Nocturne (`nocturne/`)
-
-**Feel:** dark, glowing, animated. Curiosity as the only light in the room.
-
-- **Palette:** deepest `#07070c` night; accents violet `#7c5cff`, cyan
-  `#42e8e0`, amber `#ffb454`.
-- **Type:** Space Grotesk display + Inter body. Hero very large, tight, with a
-  gradient-filled "Qrious".
-- **Decoration:** three blurred aurora blobs drifting on long cycles, plus a
-  particle canvas of slow rising motes.
-- **Input:** pill-shaped glass bar; on focus it blooms with a gradient border
-  glow and lifts.
-- **Cards:** glass panels that lift and glow on hover.
-- **Idea:** the night of wondering, lit by one warm spark.
-
-## Direction 2 — Daylight (`daylight/`)
+## Direction 1 — Daylight (`daylight/`)
 
 **Feel:** light, airy, editorial. Calm, trustworthy.
 
@@ -78,7 +63,7 @@ Shared behaviour:
 - **Idea:** a calm, well-set page you trust — like the front page of a good
   journal.
 
-## Direction 3 — Playtime (`playtime/`)
+## Direction 2 — Playtime (`playtime/`)
 
 **Feel:** playful, colorful. Rounded, energetic, friendly.
 
@@ -92,37 +77,7 @@ Shared behaviour:
   pop style). Cards are tinted per slot, tilted slightly, and jump on hover.
 - **Idea:** learning as play — ask silly questions, get rewarded for asking.
 
----
-
-## Direction 4 — Blueprint (`blueprint/`)
-
-**Feel:** technical drawing. Curiosity as engineering.
-
-- **Palette:** blueprint blue `#0a2545` with a cyan grid, white ink, amber
-  callouts.
-- **Type:** IBM Plex Mono for labels and annotations, Space Grotesk for the
-  hero.
-- **Decoration:** a drafting frame with corner brackets and rulers, a dimension
-  line under the hero, a title block pinned bottom-right.
-- **Input:** a dashed technical field with corner tick marks, labelled
-  `INPUT · QUERY_001`, and a `RUN` stamp button.
-- **Cards:** dashed "SPEC 01–04" fields.
-- **Idea:** every question is a schematic to be drawn.
-
-## Direction 5 — Riso Zine (`riso/`)
-
-**Feel:** DIY print. Human, loud, anti-corporate.
-
-- **Palette:** off-white paper, near-black ink, fluorescent pink `#ff2e63` and
-  riso blue `#1f4fff`.
-- **Type:** Archivo Black headlines, Space Mono for everything else.
-- **Decoration:** halftone dots, a photocopy-grain overlay, misregistered
-  color offsets on the hero word.
-- **Input and cards:** thick ink outlines with hard pink/blue offset shadows;
-  cards tilt like pasted cut-outs.
-- **Idea:** a zine about asking — raw and joyful.
-
-## Direction 6 — Luxury Atelier (`atelier/`)
+## Direction 3 — Luxury Atelier (`atelier/`)
 
 **Feel:** knowledge as treasure. Refined, quiet, expensive.
 
@@ -135,47 +90,9 @@ Shared behaviour:
 - **Entries:** a numbered hairline list (01–04), not cards.
 - **Idea:** a curated atelier of curiosity.
 
-## Direction 7 — Liquid Glass (`liquidglass/`)
-
-**Feel:** premium calm-tech.
-
-- **Palette:** deep navy base with a fluid gradient of indigo, teal, pink and
-  amber.
-- **Type:** Sora display + Inter.
-- **Decoration:** frosted glass panels over drifting color orbs, film grain, a
-  subtle pointer parallax.
-- **Input:** a glass pill inside a large glass console.
-- **Cards:** small glass chips.
-- **Idea:** modern, tactile, trustworthy software.
-
-## Direction 8 — Quest Log (`questlog/`)
-
-**Feel:** learning as adventure.
-
-- **Palette:** dark leather `#17120c`, gold `#e0ac4e`, parchment cards, emerald
-  XP.
-- **Type:** Cinzel for runes/labels, Spectral for the hero, Inter for UI.
-- **Decoration:** a sticky HUD with a level and an XP bar; a "+25 XP" reward on
-  every quest; a sparkle burst and toast on submit.
-- **Input and cards:** a carved panel and parchment quest cards.
-- **Idea:** progress and reward built into the first interaction.
-
-## Direction 9 — Clay Toy (`clay/`)
-
-**Feel:** tactile and friendly.
-
-- **Palette:** soft lavender base gradient with lavender, mint, peach and sky
-  clay colors.
-- **Type:** Baloo 2 display + Nunito.
-- **Decoration:** blurred clay blobs, puffy dual-shadow surfaces.
-- **Input and cards:** extruded clay tubes and tiles that squish on hover with
-  an overshoot spring.
-- **Idea:** squish your curiosity — warm and physical, but three-dimensional
-  where Playtime is flat.
-
 ---
 
-## Closing rules that apply to all nine
+## Closing rules that apply to all three
 
 1. **One focal point.** Exactly one thing competes for attention: the input.
 2. **Motion with meaning.** Animate to feel alive and to reward input, never as
