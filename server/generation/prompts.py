@@ -4,6 +4,8 @@ from collections.abc import Mapping
 
 from core.constants import normalize_lens
 
+SPAN_KINDS = frozenset({"dive", "eli5", "define", "example"})
+
 ANCHOR_RULE = (
     "Wrap between 3 and 6 short, self-contained concepts in the answer with "
     "double asterisks, like **Rayleigh scattering**. These markers are "
@@ -32,6 +34,33 @@ EXAMPLE_LENGTH_RULE = (
     "line, each starting with '- '. Keep every example to a single short "
     "sentence. Do this regardless of the reader's depth preference or how long "
     "the surrounding answer is — examples are a short list, never a paragraph."
+)
+
+ELI5_ANCHOR_RULE = (
+    "Wrap only the one or two terms that genuinely merit their own explanation "
+    "in double asterisks; the simplest version must not be crowded with markers."
+)
+
+ELI5_LENGTH_RULE = (
+    "Give the simplest true version in three to five short sentences, using one "
+    "everyday analogy. Do not introduce a term the passage has not already used, "
+    "and end on the single most useful takeaway."
+)
+
+SCOPE_RULE = (
+    "You are explaining one phrase the reader selected from a passage they "
+    "already have in front of them. Explain only that phrase: do not restate, "
+    "summarise, or re-explain the surrounding passage, and do not re-teach the "
+    "topic from the beginning."
+)
+
+REFERENCE_RULE = (
+    "The selected phrase may depend on the passage for its meaning — a pronoun "
+    "(this, it, that) or a framing phrase such as 'the practical upshot'. "
+    "Resolve what it refers to from the passage before explaining; if it stays "
+    "ambiguous, say which reading you are taking. When the phrase names no "
+    "subject of its own, treat it as a reference into the passage, not a "
+    "standalone topic."
 )
 
 TRUST_RULE = (
@@ -71,12 +100,33 @@ GOAL_GUIDANCE = {
 
 KIND_GUIDANCE = {
     "root": "Answer the reader's opening question.",
-    "dive": "Explain the highlighted phrase in its own right, in context.",
-    "eli5": "Explain it as you would to a bright five-year-old.",
+    "dive": (
+        "Explain the highlighted phrase in its own right, in context — go deeper "
+        "on the phrase, not on the surrounding answer."
+    ),
+    "eli5": "Explain the highlighted phrase as you would to a bright five-year-old.",
     "example": "Illustrate with a short list of concrete examples.",
     "define": "Give a short, precise definition with no preamble.",
     "ask": "Answer the reader's follow-up question about the passage.",
 }
+
+FRAME_PHRASES = {
+    "root": "the answer to",
+    "dive": "a deeper dive on",
+    "eli5": "the simple explanation of",
+    "define": "the definition of",
+    "example": "the examples of",
+    "ask": "the answer to",
+}
+
+
+def frame_line(kind: str, title: str | None) -> str | None:
+    """Describe the container a selection came from, e.g. 'the definition of: "gas"'."""
+    phrase = FRAME_PHRASES.get(kind)
+    title = (title or "").strip()
+    if not phrase or not title:
+        return None
+    return f'{phrase}: "{title}"'
 
 
 def build_system_prompt(lens: Mapping[str, str] | None, kind: str) -> str:
@@ -86,6 +136,10 @@ def build_system_prompt(lens: Mapping[str, str] | None, kind: str) -> str:
     sections = [
         "You are Qriously, an explanation engine inside a learning reader.",
         KIND_GUIDANCE.get(kind, KIND_GUIDANCE["root"]),
+    ]
+    if kind in SPAN_KINDS:
+        sections += [SCOPE_RULE, REFERENCE_RULE]
+    sections += [
         FAMILIARITY_GUIDANCE[normalized["familiarity"]],
         length_rule,
         STYLE_GUIDANCE[normalized["style"]],
@@ -103,6 +157,8 @@ def _kind_rules(kind: str, depth: str) -> tuple[str, str]:
         return DEFINE_LENGTH_RULE, DEFINE_ANCHOR_RULE
     if kind == "example":
         return EXAMPLE_LENGTH_RULE, EXAMPLE_ANCHOR_RULE
+    if kind == "eli5":
+        return ELI5_LENGTH_RULE, ELI5_ANCHOR_RULE
     return DEPTH_GUIDANCE[depth], ANCHOR_RULE
 
 
@@ -112,14 +168,24 @@ def build_user_prompt(
     kind: str,
     context: str | None = None,
     span_text: str | None = None,
+    frame: str | None = None,
 ) -> str:
+    lines = []
+    if frame:
+        lines.append(f"This selection comes from {frame}.")
     if kind == "ask" and span_text:
-        lines = [
-            f"Passage: {span_text}",
-            f"Question about the passage: {text}",
-        ]
-    else:
-        lines = [f"Explain: {text}"]
+        lines.append(f"Passage: {span_text}")
+        lines.append(f"Question about the passage: {text}")
+        return "\n".join(lines)
+    if kind in SPAN_KINDS and span_text:
+        if context:
+            lines.append(f"Passage:\n{context}")
+        lines.append(f"Selected phrase: {span_text}")
+        lines.append(
+            "Explain the selected phrase only — do not re-explain the passage above."
+        )
+        return "\n".join(lines)
+    lines.append(f"Explain: {text}")
     if context:
         lines.append(f"Context this came from: {context}")
     return "\n".join(lines)
@@ -132,9 +198,10 @@ def build_messages(
     lens: Mapping[str, str] | None,
     context: str | None = None,
     span_text: str | None = None,
+    frame: str | None = None,
 ) -> list[dict[str, str]]:
     user = build_user_prompt(
-        text=text, kind=kind, context=context, span_text=span_text
+        text=text, kind=kind, context=context, span_text=span_text, frame=frame
     )
     return [
         {"role": "system", "content": build_system_prompt(lens, kind)},

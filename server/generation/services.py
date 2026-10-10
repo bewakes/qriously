@@ -12,8 +12,13 @@ from django.utils import timezone
 from content.models import ContentVariant
 from content.reuse import find_variant
 from content.services import get_or_create_variant, upsert_concept
-from content.text import context_fingerprint, normalize
-from core.constants import DEFAULT_MODEL, PROMPT_VERSION, normalize_lens
+from content.text import context_fingerprint, context_window, normalize
+from core.constants import (
+    BRANCH_CONTEXT_MAX_CHARS,
+    DEFAULT_MODEL,
+    PROMPT_VERSION,
+    normalize_lens,
+)
 from core.constants import lens_bucket as make_lens_bucket
 from credits.errors import InsufficientCredits
 from credits.policies import price
@@ -26,7 +31,7 @@ from telemetry.services import finish_request, start_request
 from .errors import ContentBlocked
 from .llm import LLMClient, LLMError, get_client
 from .models import GenerationJob, JobStatus
-from .prompts import build_messages
+from .prompts import SPAN_KINDS, build_messages, frame_line
 
 if TYPE_CHECKING:
     from accounts.models import User
@@ -111,8 +116,9 @@ def prepare_generation(
         text=text,
         kind=kind,
         lens=effective_lens,
-        context=parent.title if parent is not None else None,
+        context=_branch_context(parent, kind, span_text),
         span_text=span_text,
+        frame=frame_line(parent.kind, parent.title) if parent is not None else None,
     )
     return GenerationJob.objects.create(
         request=request_log,
@@ -238,6 +244,16 @@ def _parent_concept_key(parent: Node | None) -> str:
     if parent is not None and parent.content_variant_id:
         return parent.content_variant.concept.key
     return ""
+
+
+def _branch_context(
+    parent: Node | None, kind: str, span_text: str | None
+) -> str | None:
+    """Bounded passage around a selected span, for span-scoped kinds only."""
+    if parent is None or kind not in SPAN_KINDS or not parent.content_variant_id:
+        return None
+    body = parent.content_variant.body
+    return context_window(body, span_text, BRANCH_CONTEXT_MAX_CHARS)
 
 
 def _load_hit_variant(job: GenerationJob) -> ContentVariant | None:
