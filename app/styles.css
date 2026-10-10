@@ -989,23 +989,18 @@ body.history-collapsed .composer-form {
 }
 
 .as-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: 14px minmax(0, max-content) minmax(0, 1fr) 22px 22px;
   align-items: baseline;
-  gap: 8px;
+  column-gap: 5px;
   margin-bottom: 6px;
   user-select: none;
   -webkit-user-select: none;
 }
 
-.as-toggle,
-.as-source,
-.as-remove {
-  align-self: center;
-}
-
 .as-toggle {
   flex: none;
-  width: 22px;
+  width: 14px;
   height: 22px;
   display: grid;
   place-items: center;
@@ -1044,6 +1039,7 @@ body.history-collapsed .composer-form {
   font-family: var(--serif);
   font-style: italic;
   font-size: 0.98rem;
+  line-height: 1.35;
   color: var(--ink-dim);
   display: -webkit-box;
   -webkit-line-clamp: 4;
@@ -1063,10 +1059,6 @@ body.history-collapsed .composer-form {
   flex-direction: column;
   gap: 1px;
   overflow: visible;
-}
-
-.side-card.kind-ask .as-head {
-  align-items: flex-start;
 }
 
 .side-card.kind-ask .as-ref {

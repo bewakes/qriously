@@ -119,8 +119,8 @@ function nodeLabel(node) {
 
 function askHeading(refText, question) {
   return (
-    `<span class="as-ref">“${escapeHtml(refText)}”</span>` +
-    `<span class="as-q">${escapeHtml(question)}</span>`
+    `<span class="as-q">${escapeHtml(question)}</span>` +
+    `<span class="as-ref">“${escapeHtml(refText)}”</span>`
   );
 }
 
