@@ -253,13 +253,17 @@ class NoteListCreateView(APIView):
     def post(self, request: Request, thread_id: str) -> Response:
         thread = _thread_or_404(request.user, thread_id)
         span = self._resolve_span(request, thread)
-        if span is None:
+        text = (request.data.get("text") or "").strip()
+        if span is None and not text:
             return Response(
-                {"error": "span_id or source_node_id+text is required"},
-                status=400,
+                {"error": "text is required when no span is given"}, status=400
             )
-        text = (request.data.get("text") or "").strip() or span.text
-        context = (request.data.get("context") or "").strip() or span.source_node.title
+        if not text:
+            text = span.text
+        fallback_context = (
+            span.source_node.title if span is not None else thread.title
+        )
+        context = (request.data.get("context") or "").strip() or fallback_context
         tags = request.data.get("tags") or []
         note = Note.objects.create(
             thread=thread, span=span, text=text, context=context, tags=tags

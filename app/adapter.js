@@ -218,6 +218,20 @@
     });
   }
 
+  /* Current wallet balance (api only). Resolves null offline or on failure. */
+  function balance() {
+    return init().then(function () {
+      if (mode !== "api") return null;
+      return API.balance()
+        .then(function (wallet) {
+          return wallet.balance;
+        })
+        .catch(function () {
+          return null;
+        });
+    });
+  }
+
   /* Delete a session (api only). Resolves false offline, when unauthenticated,
      or when the request fails, so the caller can keep the row. */
   function deleteThread(threadId) {
@@ -242,6 +256,7 @@
     saveNote: saveNote,
     deleteNote: deleteNote,
     deleteThread: deleteThread,
+    balance: balance,
     getMode: function () {
       return mode;
     },

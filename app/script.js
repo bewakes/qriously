@@ -40,6 +40,8 @@ const notesClose = $("notesClose");
 const notesEmpty = $("notesEmpty");
 const noteList = $("noteList");
 const notesExport = $("notesExport");
+const noteCompose = $("noteCompose");
+const noteComposeInput = $("noteComposeInput");
 const toastEl = $("toast");
 const historyBtn = $("historyBtn");
 const brandHome = $("brandHome");
@@ -71,6 +73,7 @@ const state = {
   threadId: null,
   credits: null,
   creditsKnown: false,
+  pendingCharges: new Set(),
   threads: [],
   historyCursor: null,
   historyDone: true,
@@ -231,22 +234,32 @@ function setCredits(balance, meta) {
   creditValue.textContent = String(balance);
   creditMeter.hidden = false;
   creditMeter.classList.toggle("low", balance <= 30);
-  if (meta && meta.cacheHit) creditMeter.classList.add("reused");
-  else creditMeter.classList.remove("reused");
+  creditMeter.classList.toggle("reused", Boolean(meta && meta.cacheHit));
+  creditMeter.classList.toggle("pending", state.pendingCharges.size > 0);
   if (balance > 0) creditMeter.classList.remove("empty");
 }
 
-function onGenerationMeta(meta) {
+function onGenerationMeta(meta, nodeId) {
   if (!state.creditsKnown || !meta) return;
+  if (nodeId) state.pendingCharges.add(nodeId);
   setCredits(Math.max(0, state.credits - (meta.cost || 0)));
 }
 
-function onGenerationUsage(usage) {
+function onGenerationUsage(usage, nodeId) {
   if (!usage) return;
+  if (nodeId) state.pendingCharges.delete(nodeId);
   setCredits(usage.balance, { cacheHit: usage.cache_hit });
   if (usage.cache_hit) {
     toast(`Reused an earlier answer · ${usage.credits_charged} credits`);
   }
+}
+
+function reconcilePending(nodeId) {
+  if (!state.pendingCharges.delete(nodeId)) return;
+  setCredits(state.credits);
+  content.balance().then((serverBalance) => {
+    if (typeof serverBalance === "number") setCredits(serverBalance);
+  });
 }
 
 function showConnection(mode) {
@@ -552,8 +565,8 @@ function fillContent(node) {
   const parentNode = node.isRoot ? null : state.nodes.get(node.parentId);
   const hooks = {
     onToken: view.token,
-    onMeta: onGenerationMeta,
-    onUsage: onGenerationUsage,
+    onMeta: (meta) => onGenerationMeta(meta, node.id),
+    onUsage: (usage) => onGenerationUsage(usage, node.id),
     idempotencyKey: node.idemKey,
   };
   const context = {
@@ -601,6 +614,7 @@ function fillContent(node) {
     .catch((err) => {
       view.fail();
       node.status = "error";
+      reconcilePending(node.id);
       if (node.isRoot) {
         stopWaitNote();
         readingMeta.textContent = "";
@@ -964,6 +978,22 @@ function saveNote(text, containerId) {
   }
 }
 
+function addFreeNote(text) {
+  const clean = text.trim();
+  if (!clean) return;
+  const context = state.question || readingTitle.textContent || "this session";
+  const note = { id: "n" + Date.now(), text: clean, context, remoteId: null };
+  state.notes.unshift(note);
+  renderNotes();
+  updateNoteCount();
+  toast("Note added");
+  if (state.threadId) {
+    content.saveNote({ threadId: state.threadId, text: clean, context }).then((saved) => {
+      if (saved && saved.id) note.remoteId = saved.id;
+    });
+  }
+}
+
 function updateNoteCount() {
   noteCount.textContent = String(state.notes.length);
 }
@@ -1084,6 +1114,7 @@ function restoreSession(snapshot) {
   state.order = [];
   state.marks = [];
   state.notes = [];
+  state.pendingCharges.clear();
   state.activeId = null;
   state.counter = 0;
   readingSections.innerHTML = "";
@@ -1318,6 +1349,7 @@ function resetToHome() {
   state.order = [];
   state.marks = [];
   state.notes = [];
+  state.pendingCharges.clear();
   state.activeId = null;
   state.rootId = null;
   readingSections.innerHTML = "";
@@ -1523,6 +1555,13 @@ themeBtn.addEventListener("click", () => setTheme(document.documentElement.datas
 notesBtn.addEventListener("click", () => (notebook.hidden = !notebook.hidden));
 notesClose.addEventListener("click", () => (notebook.hidden = true));
 notesExport.addEventListener("click", exportNotes);
+noteCompose.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const value = noteComposeInput.value.trim();
+  if (!value) return noteComposeInput.focus();
+  noteComposeInput.value = "";
+  addFreeNote(value);
+});
 
 $("newBtn").addEventListener("click", newSession);
 brandHome.addEventListener("click", (event) => {

@@ -82,3 +82,39 @@ def test_retryable_status_exhausts_and_raises():
         collect(make_client(handler, max_retries=2))
     assert excinfo.value.retryable is True
     assert calls["n"] == 3
+
+
+def test_passes_max_tokens_when_given():
+    seen = {}
+
+    def handler(request):
+        seen["payload"] = json.loads(request.content)
+        return httpx.Response(
+            200, content=sse({"choices": [{"delta": {"content": "ok"}}]})
+        )
+
+    client = make_client(handler)
+
+    async def run():
+        return [
+            chunk
+            async for chunk in client.stream(
+                [{"role": "user", "content": "hi"}], max_tokens=200
+            )
+        ]
+
+    asyncio.run(run())
+    assert seen["payload"]["max_tokens"] == 200
+
+
+def test_omits_max_tokens_when_absent():
+    seen = {}
+
+    def handler(request):
+        seen["payload"] = json.loads(request.content)
+        return httpx.Response(
+            200, content=sse({"choices": [{"delta": {"content": "ok"}}]})
+        )
+
+    collect(make_client(handler))
+    assert "max_tokens" not in seen["payload"]

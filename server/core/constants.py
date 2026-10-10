@@ -1,3 +1,4 @@
+import math
 from collections.abc import Mapping
 
 DEFAULT_MODEL = "deepseek-flash"
@@ -39,6 +40,20 @@ BASE_COST = {
 
 DEFAULT_COST = 10
 
+MAX_OUTPUT_TOKENS = {
+    "root": 1200,
+    "followup": 1000,
+    "dive": 900,
+    "ask": 600,
+    "eli5": 320,
+    "example": 320,
+    "define": 200,
+}
+
+DEFAULT_MAX_OUTPUT_TOKENS = 700
+
+DEPTH_SCALED_KINDS = frozenset({"root", "followup", "dive", "ask"})
+
 SCREENING_POLICY = "allow_all"
 
 DEFAULT_LENS = {
@@ -54,6 +69,18 @@ LENS_DIMENSIONS = {
     "style": ["plain", "analogy", "technical"],
     "goal": ["curious", "project", "exam"],
 }
+
+
+def max_output_tokens(kind: str, depth: str = "solid") -> int:
+    """Cap the model's output for a kind, bounding vendor cost per request.
+
+    Fixed-shape kinds (``eli5``/``example``/``define``) are depth-independent;
+    the open-ended kinds scale with the lens depth multiplier.
+    """
+    base = MAX_OUTPUT_TOKENS.get(kind, DEFAULT_MAX_OUTPUT_TOKENS)
+    if kind in DEPTH_SCALED_KINDS:
+        return math.ceil(base * DEPTH_MULTIPLIER.get(depth, 1.0))
+    return base
 
 
 def normalize_lens(lens: Mapping[str, str] | None) -> dict[str, str]:

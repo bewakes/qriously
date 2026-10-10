@@ -45,14 +45,18 @@ class DeepSeekClient:
         return f"{self.base_url}/chat/completions"
 
     async def stream(
-        self, messages: list[Message], *, model: str | None = None
+        self,
+        messages: list[Message],
+        *,
+        model: str | None = None,
+        max_tokens: int | None = None,
     ) -> AsyncIterator[StreamChunk]:
         model = model or self.model
         attempt = 0
         while True:
             emitted = False
             try:
-                async for chunk in self._stream_once(messages, model):
+                async for chunk in self._stream_once(messages, model, max_tokens):
                     emitted = True
                     yield chunk
                 return
@@ -68,7 +72,10 @@ class DeepSeekClient:
             await asyncio.sleep(self.backoff * attempt)
 
     async def _stream_once(
-        self, messages: list[Message], model: str
+        self,
+        messages: list[Message],
+        model: str,
+        max_tokens: int | None = None,
     ) -> AsyncIterator[StreamChunk]:
         payload = {
             "model": model,
@@ -76,6 +83,8 @@ class DeepSeekClient:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
         headers = {"Authorization": f"Bearer {self.api_key}"}
         client = self._http_client or httpx.AsyncClient(timeout=self.timeout)
         owns_client = self._http_client is None

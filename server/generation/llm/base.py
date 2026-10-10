@@ -17,5 +17,9 @@ class LLMClient(Protocol):
     model: str
 
     def stream(
-        self, messages: list[Message], *, model: str | None = None
+        self,
+        messages: list[Message],
+        *,
+        model: str | None = None,
+        max_tokens: int | None = None,
     ) -> AsyncIterator[StreamChunk]: ...

@@ -34,7 +34,7 @@ class FakeLLM:
         self.chunks = chunks
         self.called = False
 
-    async def stream(self, messages, *, model=None):
+    async def stream(self, messages, *, model=None, max_tokens=None):
         self.called = True
         for chunk in self.chunks:
             yield chunk
@@ -43,7 +43,7 @@ class FakeLLM:
 class ErrorLLM:
     model = "deepseek-flash"
 
-    async def stream(self, messages, *, model=None):
+    async def stream(self, messages, *, model=None, max_tokens=None):
         raise LLMError("upstream_timeout", "boom", retryable=True)
         yield  # pragma: no cover
 
